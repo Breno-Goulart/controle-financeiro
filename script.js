@@ -1,7 +1,23 @@
 // Importa as funções necessárias do Firebase SDK (versões modulares padrão)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, collection, onSnapshot, addDoc, setDoc, doc, deleteDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { 
+    getAuth, 
+    signInAnonymously, 
+    signInWithCustomToken, 
+    onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { 
+    getFirestore, 
+    collection, 
+    onSnapshot, 
+    addDoc, 
+    setDoc, 
+    doc, 
+    deleteDoc, 
+    query, 
+    where, 
+    getDocs 
+} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Credenciais do Firebase (certifique-se de que correspondem às suas configurações do Firebase Project)
 const firebaseConfig = {
@@ -25,6 +41,8 @@ let userId = null; // ID de autenticação individual do usuário
 let currentHouseholdId = null; // O ID do grupo/família que está sendo usado para os lançamentos
 let lancamentosCollection; // Referência à coleção Firestore para lançamentos
 let isAuthReady = false; // Flag para indicar se a autenticação foi concluída
+
+const RECURRING_MONTHS_AHEAD = 11; // Gerar para o mês atual + 11 meses à frente (total de 12)
 
 // Referências aos elementos do DOM (serão atribuídas em initializeUI)
 let lancamentoForm; 
@@ -59,7 +77,7 @@ let parcelaFieldsDiv;
 
 // Elementos para seleção e exclusão em massa
 let userIdDisplay;
-let householdIdDisplay;
+// householdIdDisplay removido do HTML para evitar duplicação, agora o joinHouseholdIdInput mostrará o ID.
 let joinHouseholdIdInput;
 let setHouseholdIdBtn;
 let selectAllCheckbox;
@@ -68,7 +86,6 @@ let selectedLancamentosIds = new Set(); // Conjunto para armazenar IDs de lança
 
 // Campo de cobrança recorrente
 let isRecurringCheckbox;
-const RECURRING_MONTHS_AHEAD = 11; // Gerar para o mês atual + 11 meses à frente (total de 12)
 
 // Variável para armazenar os lançamentos do Firestore (cache local)
 let lancamentos = [];
@@ -1661,6 +1678,9 @@ function initializeUI() {
     totalParcelasSelect = document.getElementById('totalParcelas');
     parcelaFieldsDiv = document.getElementById('parcelaFields');
     userIdDisplay = document.getElementById('user-id-display');
+    // householdIdDisplay removido do HTML, não é mais necessário atribuir aqui
+    joinHouseholdIdInput = document.getElementById('joinHouseholdIdInput');
+    setHouseholdIdBtn = document.getElementById('setHouseholdIdBtn');
     selectAllCheckbox = document.getElementById('selectAllCheckbox');
     deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
     isRecurringCheckbox = document.getElementById('isRecurring');
@@ -1673,9 +1693,6 @@ function initializeUI() {
     stopRecurringYearSelect = document.getElementById('stopRecurringYearSelect');
     cancelStopRecurringBtn = document.getElementById('cancelStopRecurringBtn');
     confirmStopRecurringBtn = document.getElementById('confirmStopRecurringBtn');
-    householdIdDisplay = document.getElementById('household-id-display');
-    joinHouseholdIdInput = document.getElementById('joinHouseholdIdInput');
-    setHouseholdIdBtn = document.getElementById('setHouseholdIdBtn');
     searchBarInput = document.getElementById('searchBar');
     categoryLoadingIndicator = document.getElementById('categoryLoadingIndicator');
     editRecurringChoiceModalOverlay = document.getElementById('editRecurringChoiceModalOverlay');
@@ -1824,13 +1841,13 @@ function initializeUI() {
     });
     confirmStopRecurringBtn.addEventListener('click', handleStopRecurringConfirmation);
 
-    // Listener para o botão "Confirmar ID da Família/Casa"
+    // Listener para o botão "Definir ID"
     setHouseholdIdBtn.addEventListener('click', () => {
         const newHouseholdId = joinHouseholdIdInput.value.trim();
         if (newHouseholdId) {
             currentHouseholdId = newHouseholdId;
             localStorage.setItem('savedHouseholdId', currentHouseholdId);
-            householdIdDisplay.textContent = newHouseholdId;
+            // joinHouseholdIdInput já exibe o valor, então não precisamos de outro display.
             showMessageBox('Sucesso', `ID da Família/Casa alterado para: ${currentHouseholdId}`);
             setupFirestoreListener(); // Re-configura o listener com o novo ID
         } else {
@@ -1880,6 +1897,12 @@ function initializeUI() {
 // Inicializa o Firebase e, em seguida, a UI após a autenticação
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        if (!firebaseConfig || Object.keys(firebaseConfig).length === 0 || !firebaseConfig.apiKey || !firebaseConfig.projectId) {
+            showMessageBox("Erro de Configuração", "As configurações do Firebase estão ausentes ou incompletas. Por favor, preencha as credenciais no script.js.");
+            console.error("Firebase config is empty or invalid:", firebaseConfig);
+            return; // Interrompe a inicialização se a config for inválida
+        }
+
         app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
@@ -1914,7 +1937,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             initializeUI(); // Chama a função para atribuir elementos e configurar listeners
 
             if (userIdDisplay) userIdDisplay.textContent = `ID do Usuário: ${userId}`;
-            if (householdIdDisplay) householdIdDisplay.textContent = currentHouseholdId;
+            // Removed householdIdDisplay.textContent = currentHouseholdId;
             if (joinHouseholdIdInput) joinHouseholdIdInput.value = currentHouseholdId;
 
             lancamentosCollection = collection(db, `artifacts/${appId}/public/data/lancamentos`);
@@ -1926,9 +1949,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
         console.error("Erro fatal ao inicializar aplicação:", error);
         const userIdDisplayFallback = document.getElementById('user-id-display');
-        const householdIdDisplayFallback = document.getElementById('household-id-display');
+        // const householdIdDisplayFallback = document.getElementById('household-id-display'); // Removido
         if (userIdDisplayFallback) userIdDisplayFallback.textContent = `Erro ao carregar ID do Usuário.`;
-        if (householdIdFallback) householdIdDisplayFallback.textContent = `Erro ao carregar ID da Família/Casa.`;
+        // if (householdIdFallback) householdIdDisplayFallback.textContent = `Erro ao carregar ID da Família/Casa.`; // Removido
         showMessageBox("Erro Crítico", 'Erro ao carregar a aplicação. Por favor, tente novamente mais tarde. Verifique o console do navegador para mais detalhes.');
     }
 });

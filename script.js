@@ -37,8 +37,8 @@ const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial
 let app; // Instância do Firebase App
 let db;  // Instância do Firestore
 let auth; // Instância do Auth
-let userId = null; // ID de autenticação individual do usuário
-let currentHouseholdId = null; // O ID do grupo/família que está sendo usado para os lançamentos
+let userId = null; // ID de autenticação individual do utilizador
+let currentHouseholdId = null; // O ID do grupo/família que está a ser usado para os lançamentos
 let lancamentosCollection; // Referência à coleção Firestore para lançamentos
 let isAuthReady = false; // Flag para indicar se a autenticação foi concluída
 
@@ -77,7 +77,6 @@ let parcelaFieldsDiv;
 
 // Elementos para seleção e exclusão em massa
 let userIdDisplay;
-// householdIdDisplay removido do HTML para evitar duplicação, agora o joinHouseholdIdInput mostrará o ID.
 let joinHouseholdIdInput;
 let setHouseholdIdBtn;
 let selectAllCheckbox;
@@ -103,7 +102,7 @@ let monthStopCheckboxes; // NodeList dos checkboxes de mês dentro do modal de p
 let stopRecurringYearSelect;
 let cancelStopRecurringBtn;
 let confirmStopRecurringBtn;
-let currentRecurringGroupId = null; // Para armazenar o ID do grupo de recorrência que está sendo parado
+let currentRecurringGroupId = null; // Para armazenar o ID do grupo de recorrência que está a ser parado
 
 // Variável para armazenar a data original de uma série de parcelas
 let originalInstallmentDate = {
@@ -1091,11 +1090,11 @@ async function addGastoBtnClickHandler(event) {
     event.preventDefault(); // Evita o recarregamento da página
 
     if (!isAuthReady) {
-        showMessageBox('Aguarde', 'Aplicação ainda carregando, por favor, aguarde a autenticação do usuário.');
+        showMessageBox('Aguarde', 'Aplicação ainda carregando, por favor, aguarde a autenticação do utilizador.');
         return;
     }
     if (!userId) {
-        showMessageBox('Erro', 'ID do usuário não disponível. Por favor, recarregue a página.');
+        showMessageBox('Erro', 'ID do utilizador não disponível. Por favor, recarregue a página.');
         return;
     }
     if (!currentHouseholdId) {
@@ -1426,7 +1425,7 @@ function updateInstallmentDateFields() {
     const currentTotalParcelas = parseInt(totalParcelasSelect.value);
 
     // Se é uma cobrança recorrente, ou se não há parcelas selecionadas,
-    // os campos de data devem refletir a data atual ou o que o usuário escolheu livremente.
+    // os campos de data devem refletir a data atual ou o que o utilizador escolheu livremente.
     if (isRecurringCheckbox.checked || (currentParcelaAtual === 0 && currentTotalParcelas === 0)) {
         const today = new Date();
         originalInstallmentDate.day = today.getDate();
@@ -1678,7 +1677,6 @@ function initializeUI() {
     totalParcelasSelect = document.getElementById('totalParcelas');
     parcelaFieldsDiv = document.getElementById('parcelaFields');
     userIdDisplay = document.getElementById('user-id-display');
-    // householdIdDisplay removido do HTML, não é mais necessário atribuir aqui
     joinHouseholdIdInput = document.getElementById('joinHouseholdIdInput');
     setHouseholdIdBtn = document.getElementById('setHouseholdIdBtn');
     selectAllCheckbox = document.getElementById('selectAllCheckbox');
@@ -1847,7 +1845,6 @@ function initializeUI() {
         if (newHouseholdId) {
             currentHouseholdId = newHouseholdId;
             localStorage.setItem('savedHouseholdId', currentHouseholdId);
-            // joinHouseholdIdInput já exibe o valor, então não precisamos de outro display.
             showMessageBox('Sucesso', `ID da Família/Casa alterado para: ${currentHouseholdId}`);
             setupFirestoreListener(); // Re-configura o listener com o novo ID
         } else {
@@ -1922,7 +1919,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } catch (error) {
                     console.error("Erro de autenticação:", error);
                     userId = crypto.randomUUID(); // Fallback para um ID aleatório
-                    showMessageBox("Erro de Autenticação", `Não foi possível autenticar o usuário. Usando um ID temporário. Erro: ${error.message}`);
+                    showMessageBox("Erro de Autenticação", `Não foi possível autenticar o utilizador. Usando um ID temporário. Erro: ${error.message}`);
                 }
             }
 
@@ -1937,8 +1934,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             initializeUI(); // Chama a função para atribuir elementos e configurar listeners
 
             if (userIdDisplay) userIdDisplay.textContent = `ID do Usuário: ${userId}`;
-            // Removed householdIdDisplay.textContent = currentHouseholdId;
-            if (joinHouseholdIdInput) joinHouseholdIdInput.value = currentHouseholdId;
+            // Remove a linha que preenche o input automaticamente. O input começará em branco.
+            // if (joinHouseholdIdInput) joinHouseholdIdInput.value = currentHouseholdId; 
 
             lancamentosCollection = collection(db, `artifacts/${appId}/public/data/lancamentos`);
             isAuthReady = true;
@@ -1949,9 +1946,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (error) {
         console.error("Erro fatal ao inicializar aplicação:", error);
         const userIdDisplayFallback = document.getElementById('user-id-display');
-        // const householdIdDisplayFallback = document.getElementById('household-id-display'); // Removido
         if (userIdDisplayFallback) userIdDisplayFallback.textContent = `Erro ao carregar ID do Usuário.`;
-        // if (householdIdFallback) householdIdDisplayFallback.textContent = `Erro ao carregar ID da Família/Casa.`; // Removido
         showMessageBox("Erro Crítico", 'Erro ao carregar a aplicação. Por favor, tente novamente mais tarde. Verifique o console do navegador para mais detalhes.');
     }
 });

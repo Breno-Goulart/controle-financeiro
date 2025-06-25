@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Controle Financeiro Pessoal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos personalizados para cores de texto */
+        .text-income {
+            color: #10B981; /* Verde esmeralda */
+        }
+        .text-expense {
+            color: #EF4444; /* Vermelho */
+        }
+        /* Estilo para focar os inputs/selects (opcional, pode ser ajustado com Tailwind) */
+        input:focus, select:focus {
+            outline: none;
+            border-color: #6366F1; /* Cor roxa do Tailwind para foco */
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+        }
+        /* Esconde as setas de input number em navegadores específicos, se necessário */
+        /* Chrome, Safari, Edge, Opera */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* Firefox */
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        /* Estilos para o Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            animation: fadeInScale 0.3s ease-out;
+        }
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        .hidden {
+            display: none !important;
+        }
+
+        /* Estilos para o MessageBox (substitui alerts) */
+        .message-box-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .message-box-content {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+            animation: fadeInScale 0.3s ease-out;
+        }
+        .message-box-content h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .message-box-content p {
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 25px;
+        }
+        .message-box-content button {
+            background-color: #6366F1;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .message-box-content button:hover {
+            background-color: #4f46e5;
+        }
+
+        /* Estilos de botões */
+        .confirm-btn-primary {
+            background-color: #6366F1; /* Indigo */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .confirm-btn-primary:hover {
+            background-color: #4f46e5;
+        }
+        .cancel-btn {
+            background-color: #E0E7FF; /* Indigo Light */
+            color: #4F46E5; /* Indigo */
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        .cancel-btn:hover {
+            background-color: #C7D2FE;
+        }
+
+        /* Classes para modais específicos */
+        .stop-recurring-modal-overlay,
+        .edit-recurring-choice-modal-overlay {
+            /* Inherits from .modal-overlay, add specific styles if needed */
+        }
+        .stop-recurring-modal-content,
+        .edit-recurring-choice-modal-content {
+            /* Inherits from .modal-content, add specific styles if needed */
+            text-align: left; /* Adjust text alignment for these modals */
+        }
+        .stop-recurring-modal-buttons,
+        .edit-recurring-choice-modal-buttons {
+            display: flex;
+            justify-content: flex-end; /* Align buttons to the right */
+            gap: 10px; /* Space between buttons */
+            margin-top: 20px;
+        }
+
+        /* Estilos para o formulário de login */
+        #login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #F3F4F6; /* Light gray background */
+        }
+        #login-form-card {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        #login-form-card h2 {
+            font-size: 2.25rem; /* text-4xl */
+            font-weight: 700; /* font-bold */
+            color: #1F2937; /* Gray 900 */
+            margin-bottom: 30px;
+        }
+        #login-form-card label {
+            display: block;
+            text-align: left;
+            font-weight: 500;
+            color: #4B5563; /* Gray 600 */
+            margin-bottom: 8px;
+        }
+        #login-form-card input[type="email"],
+        #login-form-card input[type="password"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #D1D5DB; /* Gray 300 */
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 1rem;
+            box-sizing: border-box; /* Ensures padding doesn't increase width */
+        }
+        #login-form-card button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1.125rem; /* text-lg */
+            font-weight: 600; /* font-semibold */
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        #login-form-card .login-btn {
+            background-color: #4F46E5; /* Indigo 600 */
+            color: white;
+        }
+        #login-form-card .login-btn:hover {
+            background-color: #4338CA; /* Indigo 700 */
+        }
+        #login-form-card .register-btn {
+            background-color: #E0E7FF; /* Indigo 100 */
+            color: #4F46E5; /* Indigo 600 */
+            margin-top: 15px;
+        }
+        #login-form-card .register-btn:hover {
+            background-color: #C7D2FE; /* Indigo 200 */
+        }
+
+    </style>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+
+    <div id="login-container" class="hidden">
+        <div id="login-form-card" class="bg-white p-10 rounded-xl shadow-lg w-full max-w-sm text-center">
+            <h2 class="text-4xl font-bold mb-8 text-gray-900">Bem-vindo(a)</h2>
+            <form id="auth-form">
+                <div class="mb-5">
+                    <label for="email" class="block text-gray-600 text-sm font-medium mb-2">Email:</label>
+                    <input type="email" id="email" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-gray-600 text-sm font-medium mb-2">Senha:</label>
+                    <input type="password" id="password" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                </div>
+                <button type="submit" id="login-btn" class="login-btn w-full py-3 text-lg font-semibold rounded-lg transition duration-200 ease-in-out">Entrar</button>
+                <button type="button" id="register-btn" class="register-btn w-full py-3 text-lg font-semibold rounded-lg mt-4 transition duration-200 ease-in-out">Registrar</button>
+            </form>
+        </div>
+    </div>
+
+
+    <div id="app-content" class="hidden min-h-screen flex flex-col items-center p-4 sm:p-6 lg:p-8">
+
+        <header class="w-full max-w-4xl bg-white shadow-md rounded-lg p-4 mb-6 flex justify-between items-center">
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-indigo-700">Controle Financeiro</h1>
+            <div class="text-right">
+                <p id="user-id-display" class="text-sm text-gray-600">ID do Usuário: Carregando...</p>
+                <p id="household-id-display" class="text-sm text-gray-600">ID da Família/Casa: Carregando...</p>
+                <button id="logout-btn" class="text-sm text-red-500 hover:text-red-700 mt-1">Sair</button>
+            </div>
+        </header>
+
+        <main class="w-full max-w-4xl bg-white shadow-md rounded-lg p-6 mb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div class="p-4 bg-blue-50 rounded-lg shadow-sm">
+                    <h2 class="text-lg font-semibold text-blue-800 mb-2">Saldo Atual</h2>
+                    <p id="balance-display" class="text-3xl font-bold text-blue-600">R$ 0,00</p>
+                </div>
+                <div class="p-4 bg-green-50 rounded-lg shadow-sm">
+                    <h2 class="text-lg font-semibold text-green-800 mb-2">Total de Receitas</h2>
+                    <p id="incomes-display" class="text-3xl font-bold text-green-600">R$ 0,00</p>
+                </div>
+                <div class="p-4 bg-red-50 rounded-lg shadow-sm">
+                    <h2 class="text-lg font-semibold text-red-800 mb-2">Total de Despesas</h2>
+                    <p id="expenses-display" class="text-3xl font-bold text-red-600">R$ 0,00</p>
+                </div>
+            </div>
+
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Adicionar Novo Lançamento</h2>
+            <form id="transaction-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700">Descrição</label>
+                    <input type="text" id="description" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                </div>
+                <div>
+                    <label for="amount" class="block text-sm font-medium text-gray-700">Valor</label>
+                    <input type="number" id="amount" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                </div>
+                <div>
+                    <label for="date" class="block text-sm font-medium text-gray-700">Data</label>
+                    <input type="date" id="date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                </div>
+                <div>
+                    <label for="type" class="block text-sm font-medium text-gray-700">Tipo</label>
+                    <select id="type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                        <option value="income">Receita</option>
+                        <option value="expense">Despesa</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="category" class="block text-sm font-medium text-gray-700">Categoria</label>
+                    <select id="category" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                        </select>
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="is-recurring" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="is-recurring" class="ml-2 block text-sm text-gray-900">Lançamento Recorrente</label>
+                </div>
+                <div id="recurring-options" class="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 hidden">
+                    <div>
+                        <label for="recurring-type" class="block text-sm font-medium text-gray-700">Repetir</label>
+                        <select id="recurring-type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="monthly">Mensalmente</option>
+                            <option value="weekly">Semanalmente</option>
+                            <option value="daily">Diariamente</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="installments" class="block text-sm font-medium text-gray-700">Número de Parcelas</label>
+                        <input type="number" id="installments" min="0" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <p class="text-xs text-gray-500 mt-1">Deixe 0 para recorrência infinita.</p>
+                    </div>
+                    <div>
+                        <label for="installment-number" class="block text-sm font-medium text-gray-700">Parcela Atual</label>
+                        <input type="number" id="installment-number" min="1" value="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-100 cursor-not-allowed" disabled>
+                    </div>
+                </div>
+
+                <div class="md:col-span-2 flex justify-end">
+                    <button type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Adicionar Lançamento</button>
+                </div>
+            </form>
+        </main>
+
+        <section class="w-full max-w-4xl bg-white shadow-md rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Lançamentos</h2>
+
+            <div class="mb-4 flex flex-wrap gap-2 items-center">
+                <div class="flex-grow">
+                    <label for="month-filter" class="sr-only">Filtrar por Mês</label>
+                    <select id="month-filter" class="block w-full md:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </select>
+                </div>
+                <div class="flex-grow">
+                    <label for="year-filter" class="sr-only">Filtrar por Ano</label>
+                    <select id="year-filter" class="block w-full md:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </select>
+                </div>
+                <div class="flex-grow">
+                    <label for="type-filter" class="sr-only">Filtrar por Tipo</label>
+                    <select id="type-filter" class="block w-full md:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="all">Todos</option>
+                        <option value="income">Receitas</option>
+                        <option value="expense">Despesas</option>
+                    </select>
+                </div>
+                <div class="flex-grow">
+                    <label for="category-filter" class="sr-only">Filtrar por Categoria</label>
+                    <select id="category-filter" class="block w-full md:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="all">Todas as Categorias</option>
+                        </select>
+                </div>
+            </div>
+
+
+            <div id="transactions-list" class="space-y-4">
+                <p class="text-gray-500 text-center">Nenhum lançamento encontrado para o período selecionado.</p>
+            </div>
+        </section>
+
+        <section class="w-full max-w-4xl bg-white shadow-md rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Gerenciamento de Casa/Família</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="new-household-id" class="block text-sm font-medium text-gray-700">Criar Nova Família/Casa (ID)</label>
+                    <input type="text" id="new-household-id" placeholder="Novo ID da Família/Casa" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <button id="create-household-btn" class="mt-2 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Criar</button>
+                </div>
+                <div>
+                    <label for="join-household-id" class="block text-sm font-medium text-gray-700">Entrar em Família/Casa Existente (ID)</label>
+                    <input type="text" id="join-household-id" placeholder="ID da Família/Casa Existente" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <button id="join-household-btn" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Entrar</button>
+                </div>
+            </div>
+        </section>
+
+        <footer class="mt-8 text-gray-600 text-sm">
+            <p>&copy; 2025 Meu Controle Financeiro Pessoal. Todos os direitos reservados.</p>
+        </footer>
+
+    </div>
+
+
+    <div id="stopRecurringModalOverlay" class="stop-recurring-modal-overlay hidden">
+        <div class="stop-recurring-modal-content">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Parar Recorrência?</h3>
+            <p class="text-gray-700 mb-6">Você está editando/excluindo um lançamento recorrente. Você gostaria de parar os futuros lançamentos desta recorrência a partir do mês selecionado?</p>
+            
+            <div class="mt-4 flex flex-col sm:flex-row sm:space-x-4 space-y-4 sm:space-y-0">
+                <div class="flex-1">
+                    <label for="stop-recurring-month" class="block text-sm font-medium text-gray-700 mb-1">Mês para Parar</label>
+                    <select id="stop-recurring-month" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+                        </select>
+                </div>
+                <div class="flex-1">
+                    <label for="stop-recurring-year" class="block text-sm font-medium text-gray-700 mb-1">Ano para Parar</label>
+                    <select id="stop-recurring-year" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+                        </select>
+                </div>
+            </div>
+
+            <div class="stop-recurring-modal-buttons mt-6">
+                <button id="confirmStopRecurringBtn" class="confirm-btn-primary">Confirmar</button>
+                <button id="cancelStopRecurringBtn" class="cancel-btn">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editRecurringChoiceModalOverlay" class="edit-recurring-choice-modal-overlay hidden">
+        <div class="edit-recurring-choice-modal-content">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Editar Lançamento</h3>
+            <p class="text-gray-700 mb-6">Este é um lançamento recorrente ou parcelado. Como você gostaria de aplicar esta edição?</p>
+            <div class="edit-recurring-choice-modal-buttons">
+                <button id="applyToThisBtn" class="confirm-btn-primary">Apenas Este</button>
+                <button id="applyToFutureBtn" class="confirm-btn-primary">Este e Futuros</button>
+                <button id="cancelEditRecurringBtn" class="cancel-btn">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="jscript.js"></script>
+</body>
+</html>

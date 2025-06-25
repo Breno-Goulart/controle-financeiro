@@ -143,16 +143,15 @@
     <div class="container mx-auto bg-white p-8 rounded-3xl shadow-2xl max-w-5xl w-full my-8 md:my-12 border-4 border-blue-300 transform hover:scale-[1.005] transition-transform duration-300 ease-in-out">
         <h1 class="text-3xl md:text-4xl font-extrabold mb-6 text-center text-gray-800 tracking-tight">📊 Meu Controle Financeiro Pessoal</h1>
         <p id="user-id-display" class="text-sm md:text-base font-semibold text-gray-600 text-center mb-6 font-mono bg-blue-50 p-3 rounded-lg border border-blue-200 shadow-sm">ID do Usuário: Carregando...</p>
-        <p id="household-id-display" class="text-sm md:text-base font-semibold text-gray-600 text-center mb-6 font-mono bg-yellow-50 p-3 rounded-lg border border-yellow-200 shadow-sm">ID da Família/Casa: Carregando...</p>
-
-        <!-- Seção para configurar o ID da Família/Casa -->
+        
+        <!-- Seção para configurar o ID da Família/Casa - Agora sem o parágrafo duplicado -->
         <div class="mb-8 p-6 bg-yellow-50 rounded-xl border border-yellow-200 shadow-md">
-            <h2 class="text-xl md:text-2xl font-bold mb-4 text-yellow-800">Gerenciar Família/Casa</h2>
+            <h2 class="text-xl md:text-2xl font-bold mb-4 text-yellow-800">Gerenciar ID da Família/Casa</h2>
             <div class="flex flex-col md:flex-row gap-4">
-                <input type="text" id="joinHouseholdIdInput" placeholder="Digite ou gere um ID de Família/Casa" class="flex-grow p-2.5 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 shadow-sm transition-colors duration-200">
-                <button id="setHouseholdIdBtn" class="bg-yellow-600 text-white p-2.5 rounded-lg hover:bg-yellow-700 transition-colors duration-300 shadow-md flex-shrink-0">Definir ID da Família/Casa</button>
+                <input type="text" id="joinHouseholdIdInput" placeholder="ID da Família/Casa atual" class="flex-grow p-2.5 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 shadow-sm transition-colors duration-200">
+                <button id="setHouseholdIdBtn" class="bg-yellow-600 text-white p-2.5 rounded-lg hover:bg-yellow-700 transition-colors duration-300 shadow-md flex-shrink-0">Definir ID</button>
             </div>
-            <p class="text-sm text-gray-600 mt-2">Use este ID para compartilhar lançamentos com outros membros da família ou para organizar diferentes grupos.</p>
+            <p class="text-sm text-gray-600 mt-2">Use este ID para compartilhar lançamentos com outros membros da família ou para organizar diferentes grupos. O ID acima é o ID ativo.</p>
         </div>
 
         <!-- Formulário para adicionar novos lançamentos (gasto/entrada) -->
@@ -407,7 +406,7 @@
     <div id="editRecurringChoiceModalOverlay" class="edit-recurring-choice-modal-overlay hidden">
         <div class="edit-recurring-choice-modal-content">
             <h3 class="text-xl font-bold mb-4 text-gray-800">Editar Lançamento</h3>
-            <p class="text-gray-700 mb-6">Este é um lançamento recorrente ou parcelado. Como você gostaria de aplicar esta edição?</p>
+            <p class="text-gray-700 mb-6" id="editRecurringChoiceMessage">Este é um lançamento recorrente ou parcelado. Como você gostaria de aplicar esta edição?</p>
             <div class="edit-recurring-choice-modal-buttons">
                 <button id="applyToThisBtn" class="confirm-btn-primary">Apenas Este</button>
                 <button id="applyToFutureBtn" class="confirm-btn-primary">Este e Futuros</button>

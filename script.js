@@ -2,9 +2,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { 
     getAuth, 
-    signInAnonymously, 
+    signInAnonymously, // Ainda mantido para compatibilidade, mas não usado por padrão
     signInWithCustomToken, 
-    onAuthStateChanged 
+    onAuthStateChanged,
+    createUserWithEmailAndPassword, // Novo para registo
+    signInWithEmailAndPassword // Novo para login
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { 
     getFirestore, 
@@ -124,6 +126,16 @@ let applyToThisBtn;
 let applyToFutureBtn;
 let cancelEditRecurringBtn;
 let pendingEditData = null; // Objeto para armazenar o estado da edição antes de abrir o modal de escolha
+
+// Elementos do novo modal de autenticação
+let authModalOverlay;
+let authModalTitle;
+let authMessage;
+let authEmailInput;
+let authPasswordInput;
+let registerBtn;
+let loginBtn;
+let authLoadingIndicator;
 
 /**
  * Exibe uma caixa de mensagem modal personalizada.
@@ -421,7 +433,7 @@ async function handleEditCellClick(cellElement) {
             // Comparação para 'descricao' precisa ser inteligente para lidar com "(X/Y)"
             if (key === 'descricao' && currentLancamento.parcelaAtual && currentLancamento.totalParcelas) {
                 const currentBaseDesc = currentLancamento.descricao.split(' (')[0];
-                return updateData[key] !== currentBaseDesc;
+                return updateData[key] !== baseDesc; // Use baseDesc from inputElement value
             }
             return updateData[key] !== currentLancamento[key];
         });
@@ -1094,7 +1106,7 @@ async function addGastoBtnClickHandler(event) {
         return;
     }
     if (!userId) {
-        showMessageBox('Erro', 'ID do utilizador não disponível. Por favor, recarregue a página.');
+        showMessageBox('Erro', 'ID do utilizador não disponível. Por favor, recarregue a página ou faça login.');
         return;
     }
     if (!currentHouseholdId) {
@@ -1648,6 +1660,74 @@ async function categorizeDescription(description) {
 }
 
 /**
+ * Gerencia o registo de um novo utilizador com email e palavra-passe.
+ */
+async function handleSignUp() {
+    const email = authEmailInput.value;
+    const password = authPasswordInput.value;
+
+    if (!email || !password) {
+        showMessageBox('Erro de Validação', 'Por favor, preencha o email e a palavra-passe.');
+        return;
+    }
+
+    authLoadingIndicator.classList.remove('hidden');
+    authMessage.textContent = '';
+
+    try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        showMessageBox('Sucesso', 'Registo bem-sucedido! Pode agora fazer login.');
+        authModalOverlay.classList.add('hidden'); // Esconde o modal após o registo
+    } catch (error) {
+        console.error("Erro no registo:", error);
+        let errorMessage = 'Erro ao registar. Por favor, tente novamente.';
+        if (error.code === 'auth/email-already-in-use') {
+            errorMessage = 'Este email já está em uso. Tente fazer login ou use outro email.';
+        } else if (error.code === 'auth/weak-password') {
+            errorMessage = 'A palavra-passe deve ter pelo menos 6 caracteres.';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'Formato de email inválido.';
+        }
+        authMessage.textContent = errorMessage;
+    } finally {
+        authLoadingIndicator.classList.add('hidden');
+    }
+}
+
+/**
+ * Gerencia o login de um utilizador existente com email e palavra-passe.
+ */
+async function handleSignIn() {
+    const email = authEmailInput.value;
+    const password = authPasswordInput.value;
+
+    if (!email || !password) {
+        showMessageBox('Erro de Validação', 'Por favor, preencha o email e a palavra-passe.');
+        return;
+    }
+
+    authLoadingIndicator.classList.remove('hidden');
+    authMessage.textContent = '';
+
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        showMessageBox('Sucesso', 'Login bem-sucedido!');
+        authModalOverlay.classList.add('hidden'); // Esconde o modal após o login
+    } catch (error) {
+        console.error("Erro no login:", error);
+        let errorMessage = 'Erro ao fazer login. Verifique seu email e palavra-passe.';
+        if (error.code === 'auth/invalid-credential') { // Novo erro genérico para credenciais inválidas
+             errorMessage = 'Credenciais inválidas. Verifique seu email e palavra-passe.';
+        } else if (error.code === 'auth/user-disabled') {
+            errorMessage = 'Sua conta foi desativada.';
+        }
+        authMessage.textContent = errorMessage;
+    } finally {
+        authLoadingIndicator.classList.add('hidden');
+    }
+}
+
+/**
  * Função para atribuir todos os elementos DOM e configurar seus listeners.
  * Deve ser chamada apenas quando o DOM estiver completamente carregado e o Firebase estiver pronto.
  */
@@ -1698,6 +1778,14 @@ function initializeUI() {
     applyToThisBtn = document.getElementById('applyToThisBtn');
     applyToFutureBtn = document.getElementById('applyToFutureBtn');
     cancelEditRecurringBtn = document.getElementById('cancelEditRecurringBtn');
+    authModalOverlay = document.getElementById('authModalOverlay');
+    authModalTitle = document.getElementById('authModalTitle');
+    authMessage = document.getElementById('authMessage');
+    authEmailInput = document.getElementById('authEmailInput');
+    authPasswordInput = document.getElementById('authPasswordInput');
+    registerBtn = document.getElementById('registerBtn');
+    loginBtn = document.getElementById('loginBtn');
+    authLoadingIndicator = document.getElementById('authLoadingIndicator');
 
 
     // Tratamento especial para NodeList elements (classes)
@@ -1753,10 +1841,10 @@ function initializeUI() {
 
 
     // Adiciona Event Listeners
-    lancamentoForm.addEventListener('submit', addGastoBtnClickHandler);
+    if (lancamentoForm) lancamentoForm.addEventListener('submit', addGastoBtnClickHandler);
 
     // Listener para o diaInput para atualizar mês e ano automaticamente
-    diaInput.addEventListener('change', () => {
+    if (diaInput) diaInput.addEventListener('change', () => {
         const selectedDate = new Date(diaInput.value + 'T00:00:00');
         if (!isNaN(selectedDate.getTime())) {
             mesInput.value = selectedDate.getMonth() + 1;
@@ -1774,7 +1862,7 @@ function initializeUI() {
 
     // Listener para o campo de descrição para categorização inteligente
     let debounceTimer;
-    descricaoInput.addEventListener('input', () => {
+    if (descricaoInput) descricaoInput.addEventListener('input', () => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(async () => {
             const description = descricaoInput.value;
@@ -1791,29 +1879,29 @@ function initializeUI() {
     });
 
     // Adiciona listeners para os checkboxes de mês (filterMesGroup e monthFilterCheckboxes)
-    filterMesAll.addEventListener('change', handleFilterMesAllChange);
-    filterMesAll.checked = true; // Marcar "Todos os Meses" por padrão ao carregar
+    if (filterMesAll) filterMesAll.addEventListener('change', handleFilterMesAllChange);
+    if (filterMesAll) filterMesAll.checked = true; // Marcar "Todos os Meses" por padrão ao carregar
 
     monthFilterCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', handleMonthFilterCheckboxChange);
     });
     updateMonthFilterCheckboxesState();
 
-    filterAnoSelect.addEventListener('change', () => {
+    if (filterAnoSelect) filterAnoSelect.addEventListener('change', () => {
         updateSummary();
         renderLancamentos();
     });
 
-    selectAllCheckbox.addEventListener('change', handleSelectAllChange);
+    if (selectAllCheckbox) selectAllCheckbox.addEventListener('change', handleSelectAllChange);
 
-    deleteSelectedBtn.addEventListener('click', async () => {
+    if (deleteSelectedBtn) deleteSelectedBtn.addEventListener('click', async () => {
         const confirmation = await showConfirmBox('Confirmação', 'Tem certeza que deseja excluir os lançamentos selecionados?');
         if (confirmation) {
             deleteSelectedLancamentos();
         }
     });
 
-    isRecurringCheckbox.addEventListener('change', (event) => {
+    if (isRecurringCheckbox) isRecurringCheckbox.addEventListener('change', (event) => {
         if (event.target.checked) {
             parcelaAtualSelect.value = '0';
             totalParcelasSelect.value = '0';
@@ -1822,11 +1910,11 @@ function initializeUI() {
     });
 
     // Listeners para atualizar a data quando parcelaAtual ou totalParcelas mudam
-    parcelaAtualSelect.addEventListener('change', updateInstallmentDateFields);
-    totalParcelasSelect.addEventListener('change', updateInstallmentDateFields);
+    if (parcelaAtualSelect) parcelaAtualSelect.addEventListener('change', updateInstallmentDateFields);
+    if (totalParcelasSelect) totalParcelasSelect.addEventListener('change', updateInstallmentDateFields);
 
     // Listeners para o modal de parar recorrência
-    stopFromCurrentMonthCheckbox.addEventListener('change', (event) => {
+    if (stopFromCurrentMonthCheckbox) stopFromCurrentMonthCheckbox.addEventListener('change', (event) => {
         if (event.target.checked) {
             specificMonthsSelectionDiv.classList.add('opacity-50', 'pointer-events-none');
             monthStopCheckboxes.forEach(cb => cb.checked = false);
@@ -1834,13 +1922,13 @@ function initializeUI() {
             specificMonthsSelectionDiv.classList.remove('opacity-50', 'pointer-events-none');
         }
     });
-    cancelStopRecurringBtn.addEventListener('click', () => {
+    if (cancelStopRecurringBtn) cancelStopRecurringBtn.addEventListener('click', () => {
         stopRecurringMonthsModalOverlay.classList.add('hidden');
     });
-    confirmStopRecurringBtn.addEventListener('click', handleStopRecurringConfirmation);
+    if (confirmStopRecurringBtn) confirmStopRecurringBtn.addEventListener('click', handleStopRecurringConfirmation);
 
     // Listener para o botão "Definir ID"
-    setHouseholdIdBtn.addEventListener('click', () => {
+    if (setHouseholdIdBtn) setHouseholdIdBtn.addEventListener('click', () => {
         const newHouseholdId = joinHouseholdIdInput.value.trim();
         if (newHouseholdId) {
             currentHouseholdId = newHouseholdId;
@@ -1853,13 +1941,13 @@ function initializeUI() {
     });
 
     // Listener para o campo de busca
-    searchBarInput.addEventListener('input', () => {
+    if (searchBarInput) searchBarInput.addEventListener('input', () => {
         renderLancamentos();
         updateSummary();
     });
 
     // Listeners para o modal de escolha de edição recorrente/parcelada
-    applyToThisBtn.addEventListener('click', () => {
+    if (applyToThisBtn) applyToThisBtn.addEventListener('click', () => {
         if (pendingEditData) {
             applyEditToSingleLancamento(
                 pendingEditData.id,
@@ -1871,7 +1959,7 @@ function initializeUI() {
         }
         editRecurringChoiceModalOverlay.classList.add('hidden');
     });
-    applyToFutureBtn.addEventListener('click', () => {
+    if (applyToFutureBtn) applyToFutureBtn.addEventListener('click', () => {
         if (pendingEditData) {
             applyEditToSeriesLancamentos(
                 pendingEditData.id,
@@ -1884,10 +1972,14 @@ function initializeUI() {
         }
         editRecurringChoiceModalOverlay.classList.add('hidden');
     });
-    cancelEditRecurringBtn.addEventListener('click', () => {
+    if (cancelEditRecurringBtn) cancelEditRecurringBtn.addEventListener('click', () => {
         pendingEditData = null;
         editRecurringChoiceModalOverlay.classList.add('hidden');
     });
+
+    // Event listeners para os botões de autenticação
+    if (registerBtn) registerBtn.addEventListener('click', handleSignUp);
+    if (loginBtn) loginBtn.addEventListener('click', handleSignIn);
 }
 
 
@@ -1904,43 +1996,60 @@ document.addEventListener('DOMContentLoaded', async () => {
         db = getFirestore(app);
         auth = getAuth(app);
 
+        // Listener de estado de autenticação principal
         onAuthStateChanged(auth, async (user) => {
             if (user) {
+                // Usuário autenticado (via email/password ou token personalizado)
                 userId = user.uid;
+                authModalOverlay.classList.add('hidden'); // Esconde o modal de autenticação
+                
+                // Tenta carregar o ID da família/casa guardado no localStorage
+                const savedHouseholdId = localStorage.getItem('savedHouseholdId');
+                if (savedHouseholdId) {
+                    currentHouseholdId = savedHouseholdId;
+                } else {
+                    // Se não houver ID guardado, usa o UID do utilizador como o ID da família/casa
+                    currentHouseholdId = userId;
+                    localStorage.setItem('savedHouseholdId', currentHouseholdId);
+                }
+
+                initializeUI(); // Inicializa a UI com o utilizador autenticado
+                
+                if (userIdDisplay) userIdDisplay.textContent = `ID do Usuário: ${userId}`;
+                if (householdIdDisplay) householdIdDisplay.textContent = currentHouseholdId;
+                // Deixa o joinHouseholdIdInput em branco para o utilizador preencher
+                if (joinHouseholdIdInput) joinHouseholdIdInput.value = ''; 
+
+                // Define a coleção do Firestore e inicia o listener
+                lancamentosCollection = collection(db, `artifacts/${appId}/public/data/lancamentos`);
+                isAuthReady = true;
+                setupFirestoreListener();
+
             } else {
-                try {
-                    if (initialAuthToken) {
-                        const userCredential = await signInWithCustomToken(auth, initialAuthToken);
-                        userId = userCredential.user.uid;
-                    } else {
-                        const userCredential = await signInAnonymously(auth);
-                        userId = userCredential.user.uid;
+                // Nenhum utilizador autenticado
+                console.log("Nenhum utilizador autenticado. Verificando token ou mostrando modal de login.");
+                if (initialAuthToken) {
+                    // Tenta autenticar com o token personalizado do Canvas
+                    try {
+                        console.log("Tentando autenticar com token personalizado...");
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        // Se for bem-sucedido, onAuthStateChanged será chamado novamente com o utilizador
+                    } catch (error) {
+                        console.error("Erro ao autenticar com token personalizado:", error);
+                        // Se o token personalizado falhar, mostra o modal de login
+                        authModalOverlay.classList.remove('hidden');
+                        authModalTitle.textContent = "Faça Login ou Registre-se";
+                        authMessage.textContent = "Não foi possível autenticar automaticamente. Por favor, faça login ou registe-se.";
+                        isAuthReady = false; // A aplicação não está pronta sem autenticação
                     }
-                } catch (error) {
-                    console.error("Erro de autenticação:", error);
-                    userId = crypto.randomUUID(); // Fallback para um ID aleatório
-                    showMessageBox("Erro de Autenticação", `Não foi possível autenticar o utilizador. Usando um ID temporário. Erro: ${error.message}`);
+                } else {
+                    // Se não houver token personalizado, mostra diretamente o modal de login
+                    authModalOverlay.classList.remove('hidden');
+                    authModalTitle.textContent = "Faça Login ou Registre-se";
+                    authMessage.textContent = "Para usar a aplicação, por favor, faça login ou registe-se.";
+                    isAuthReady = false; // A aplicação não está pronta sem autenticação
                 }
             }
-
-            const savedHouseholdId = localStorage.getItem('savedHouseholdId');
-            if (savedHouseholdId) {
-                currentHouseholdId = savedHouseholdId;
-            } else {
-                currentHouseholdId = userId;
-                localStorage.setItem('savedHouseholdId', currentHouseholdId);
-            }
-
-            initializeUI(); // Chama a função para atribuir elementos e configurar listeners
-
-            if (userIdDisplay) userIdDisplay.textContent = `ID do Usuário: ${userId}`;
-            // Remove a linha que preenche o input automaticamente. O input começará em branco.
-            // if (joinHouseholdIdInput) joinHouseholdIdInput.value = currentHouseholdId; 
-
-            lancamentosCollection = collection(db, `artifacts/${appId}/public/data/lancamentos`);
-            isAuthReady = true;
-
-            setupFirestoreListener();
         });
 
     } catch (error) {
@@ -1948,5 +2057,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const userIdDisplayFallback = document.getElementById('user-id-display');
         if (userIdDisplayFallback) userIdDisplayFallback.textContent = `Erro ao carregar ID do Usuário.`;
         showMessageBox("Erro Crítico", 'Erro ao carregar a aplicação. Por favor, tente novamente mais tarde. Verifique o console do navegador para mais detalhes.');
+        
+        // Em caso de erro crítico de inicialização, esconde a UI principal e mostra o modal de autenticação
+        // para evitar que o utilizador tente interagir com uma app quebrada.
+        authModalOverlay.classList.remove('hidden');
+        authModalTitle.textContent = "Erro na Aplicação";
+        authMessage.textContent = "Houve um erro crítico ao iniciar a aplicação. Por favor, tente novamente mais tarde.";
+        isAuthReady = false;
     }
 });

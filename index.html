@@ -46,7 +46,7 @@
         }
 
         /* Estilos para os modais personalizados */
-        .message-box-overlay, .confirm-box-overlay, .stop-recurring-modal-overlay, .edit-recurring-choice-modal-overlay {
+        .message-box-overlay, .confirm-box-overlay, .stop-recurring-modal-overlay, .edit-recurring-choice-modal-overlay, .auth-modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
@@ -59,7 +59,7 @@
             z-index: 1000;
         }
 
-        .message-box-content, .confirm-box-content, .stop-recurring-modal-content, .edit-recurring-choice-modal-content {
+        .message-box-content, .confirm-box-content, .stop-recurring-modal-content, .edit-recurring-choice-modal-content, .auth-modal-content {
             background-color: white;
             padding: 30px;
             border-radius: 12px;
@@ -78,7 +78,7 @@
             }
         }
 
-        .message-box-content h3, .confirm-box-content h3, .stop-recurring-modal-content h3, .edit-recurring-choice-modal-content h3 {
+        .message-box-content h3, .confirm-box-content h3, .stop-recurring-modal-content h3, .edit-recurring-choice-modal-content h3, .auth-modal-content h2 {
             font-size: 1.8em;
             font-weight: bold;
             margin-bottom: 15px;
@@ -91,7 +91,7 @@
             margin-bottom: 25px;
         }
 
-        .message-box-content button, .confirm-box-buttons button, .stop-recurring-modal-content button, .edit-recurring-choice-modal-content button {
+        .message-box-content button, .confirm-box-buttons button, .stop-recurring-modal-content button, .edit-recurring-choice-modal-content button, .auth-modal-content button {
             padding: 10px 25px;
             border-radius: 8px;
             font-size: 1em;
@@ -137,14 +137,36 @@
         .hidden {
             display: none !important;
         }
+        /* Spinner styles for auth modal */
+        #auth-loading-spinner .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        @-webkit-keyframes spinner {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
     <div class="container mx-auto bg-white p-8 rounded-3xl shadow-2xl max-w-5xl w-full my-8 md:my-12 border-4 border-blue-300 transform hover:scale-[1.005] transition-transform duration-300 ease-in-out">
         <h1 class="text-3xl md:text-4xl font-extrabold mb-6 text-center text-gray-800 tracking-tight">📊 Meu Controle Financeiro Pessoal</h1>
-        <p id="user-id-display" class="text-sm md:text-base font-semibold text-gray-600 text-center mb-6 font-mono bg-blue-50 p-3 rounded-lg border border-blue-200 shadow-sm">ID do Usuário: Carregando...</p>
         
-        <!-- Seção para configurar o ID da Família/Casa - Agora sem o parágrafo duplicado -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <p id="user-id-display" class="text-sm md:text-base font-semibold text-gray-600 text-center md:text-left font-mono bg-blue-50 p-3 rounded-lg border border-blue-200 shadow-sm flex-grow">ID do Usuário: Carregando...</p>
+            <div class="flex gap-3">
+                <span id="auth-status-display" class="text-sm md:text-base font-semibold text-gray-700 bg-gray-100 p-3 rounded-lg border border-gray-200 shadow-sm hidden"></span>
+                <button id="openAuthModalBtn" class="bg-indigo-600 text-white p-2.5 rounded-lg hover:bg-indigo-700 transition-colors duration-300 shadow-md">Login / Registar</button>
+                <button id="logoutBtn" class="bg-red-600 text-white p-2.5 rounded-lg hover:bg-red-700 transition-colors duration-300 shadow-md hidden">Logout</button>
+            </div>
+        </div>
+        
+        <!-- Seção para configurar o ID da Família/Casa -->
         <div class="mb-8 p-6 bg-yellow-50 rounded-xl border border-yellow-200 shadow-md">
             <h2 class="text-xl md:text-2xl font-bold mb-4 text-yellow-800">Gerenciar ID da Família/Casa</h2>
             <div class="flex flex-col md:flex-row gap-4">
@@ -335,7 +357,7 @@
         </div>
     </div>
 
-    <!-- Modais (Message, Confirm, Stop Recurring, Edit Recurring Choice) -->
+    <!-- Modais (Message, Confirm, Stop Recurring, Edit Recurring Choice, Auth) -->
 
     <!-- Modal de Mensagem Padrão -->
     <div id="messageBoxOverlay" class="message-box-overlay hidden">
@@ -411,6 +433,87 @@
                 <button id="applyToThisBtn" class="confirm-btn-primary">Apenas Este</button>
                 <button id="applyToFutureBtn" class="confirm-btn-primary">Este e Futuros</button>
                 <button id="cancelEditRecurringBtn" class="cancel-btn">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Auth Modal Overlay -->
+    <div id="authModalOverlay" class="auth-modal-overlay hidden">
+        <div class="auth-modal-content max-w-md w-full relative">
+            <button id="closeAuthModalBtn" class="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-2xl font-bold">&times;</button>
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">Aceder à Sua Conta</h2>
+
+            <!-- Auth Message Box -->
+            <div id="auth-message-box" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                <strong class="font-bold">Erro!</strong>
+                <span class="block sm:inline" id="auth-message-text"></span>
+                <span class="absolute top-0 bottom-0 right-0 px-4 py-3">
+                    <svg id="close-auth-message" class="fill-current h-6 w-6 text-red-500 cursor-pointer" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Fechar</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.103l-2.651 3.746a1.2 1.2 0 1 1-1.697-1.697l3.746-2.651-3.746-2.651a1.2 1.2 0 1 1 1.697-1.697L10 8.897l2.651-3.746a1.2 1.2 0 1 1 1.697 1.697L11.103 10l3.746 2.651a1.2 1.2 0 0 1 0 1.698z"/></svg>
+                </span>
+            </div>
+
+            <!-- Login Section -->
+            <div id="loginSection">
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <label for="emailLoginInput" class="block text-gray-700 text-sm font-bold mb-2">E-mail:</label>
+                        <input type="email" id="emailLoginInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200" placeholder="o seu e-mail" required autocomplete="email">
+                    </div>
+                    <div>
+                        <label for="passwordLoginInput" class="block text-gray-700 text-sm font-bold mb-2">Palavra-passe:</label>
+                        <input type="password" id="passwordLoginInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200" placeholder="a sua palavra-passe" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" id="loginBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg w-full transition duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-75">Iniciar Sessão</button>
+                </form>
+                <div class="flex items-center justify-between my-6">
+                    <span class="border-b w-1/5 lg:w-1/4"></span>
+                    <span class="text-xs text-center text-gray-500 uppercase">ou</span>
+                    <span class="border-b w-1/5 lg:w-1/4"></span>
+                </div>
+                <button type="button" id="googleLoginBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg w-full flex items-center justify-center transition duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-75">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+                        <path d="M12.24 10.23c-.31 0-.6-.02-.87-.07-.76-.48-1.22-1.35-1.22-2.31 0-.89.37-1.72.99-2.28.61-.56 1.4-.89 2.27-.89 1.48 0 2.65.6 3.5 1.72l1.9-1.89C15.93 3.63 14.28 3 12.24 3c-2.7 0-4.94 1.15-6.61 2.89-1.67 1.74-2.5 3.9-2.5 6.44s.83 4.7 2.5 6.44c1.67 1.74 3.91 2.89 6.61 2.89 2.05 0 3.7-1.12 4.67-2.02.97-.9 1.45-2.07 1.45-3.5 0-1.42-.48-2.61-1.45-3.5C15.94 11.35 14.29 10.23 12.24 10.23zM21.5 12c0 2.26-1.17 3.99-3.26 5.09-2.09 1.1-4.74 1.1-6.24 0V9.43c1.5-.95 3.84-.95 6.24 0C20.33 10.37 21.5 11.51 21.5 12z"/>
+                    </svg>
+                    Entrar com Google
+                </button>
+                <button type="button" id="switchToRegisterBtn" class="text-indigo-600 hover:text-indigo-700 text-sm mt-4 w-full text-center block transition duration-200">Não tem conta? Registe-se!</button>
+                <button type="button" id="switchToResetPasswordBtn" class="text-indigo-600 hover:text-indigo-700 text-sm mt-2 w-full text-center block transition duration-200">Esqueceu a palavra-passe?</button>
+            </div>
+
+            <!-- Register Section (hidden by default) -->
+            <div id="registerSection" class="hidden">
+                <form id="registerForm" class="space-y-4">
+                    <div>
+                        <label for="emailRegisterInput" class="block text-gray-700 text-sm font-bold mb-2">E-mail:</label>
+                        <input type="email" id="emailRegisterInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200" placeholder="o seu e-mail" required autocomplete="email">
+                    </div>
+                    <div>
+                        <label for="passwordRegisterInput" class="block text-gray-700 text-sm font-bold mb-2">Palavra-passe:</label>
+                        <input type="password" id="passwordRegisterInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200" placeholder="crie uma palavra-passe" required autocomplete="new-password">
+                    </div>
+                    <div>
+                        <label for="confirmPasswordRegisterInput" class="block text-gray-700 text-sm font-bold mb-2">Confirmar Palavra-passe:</label>
+                        <input type="password" id="confirmPasswordRegisterInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200" placeholder="confirme a palavra-passe" required autocomplete="new-password">
+                    </div>
+                    <button type="submit" id="registerBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg w-full transition duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75">Registar</button>
+                </form>
+                <button type="button" id="switchToLoginBtn" class="text-indigo-600 hover:text-indigo-700 text-sm mt-4 w-full text-center block transition duration-200">Já tem conta? Inicie sessão!</button>
+            </div>
+
+            <!-- Reset Password Section (hidden by default) -->
+            <div id="resetPasswordSection" class="hidden">
+                <h3 class="text-xl font-bold mb-4 text-gray-800">Redefinir Palavra-passe</h3>
+                <p class="text-gray-700 mb-6">Insira o seu e-mail para receber um link de redefinição de palavra-passe.</p>
+                <input type="email" id="emailResetPasswordInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200 mb-4" placeholder="o seu e-mail" required autocomplete="email">
+                <div class="flex gap-4">
+                    <button id="resetPasswordBtn" class="confirm-btn-primary flex-grow">Enviar Link</button>
+                    <button id="switchToLoginFromResetBtn" class="cancel-btn flex-grow">Cancelar</button>
+                </div>
+            </div>
+
+            <!-- Auth Loading Spinner -->
+            <div id="auth-loading-spinner" class="hidden flex justify-center items-center mt-4">
+                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
             </div>
         </div>
     </div>

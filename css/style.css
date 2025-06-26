@@ -1,78 +1,86 @@
-/* Seu CSS customizado */
+/* Este arquivo deve ser salvo em 'css/style.css' */
+
+/* Configuração para o tema escuro do Tailwind */
+:root {
+    --color-primary: #e94560; /* Botões, títulos */
+    --color-secondary: #0f3460; /* Fundo de cabeçalho/card */
+    --color-bg: #1a1a2e; /* Fundo principal */
+    --color-text: #e0e0e0; /* Cor do texto */
+    --color-border: #0a0e1c; /* Borda/Divisor */
+    --color-income: #28a745;
+    --color-expense: #dc3545;
+    --color-warning: #ffc107;
+}
+
+body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: sans-serif;
+    margin-bottom: 80px; /* Adiciona margem inferior para o rodapé fixo */
+}
+
+/* Cores customizadas para o Tailwind */
+.bg-primary { background-color: var(--color-primary); }
+.hover\:bg-primary-dark:hover { background-color: #c2314d; } /* Exemplo de hover */
+.text-primary { color: var(--color-primary); }
+.bg-secondary { background-color: var(--color-secondary); }
+.border-custom-dark { border-color: var(--color-border); }
+.bg-dark-bg { background-color: var(--color-bg); }
+.text-income { color: var(--color-income); }
+.text-expense { color: var(--color-expense); }
+.text-warning { color: var(--color-warning); }
+
+/* Ajustes de estilo para componentes específicos não cobertos pelo Tailwind diretamente */
+.modal {
+    display: none; /* Controlled by JS */
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+}
+
+.balance-value.positive { color: var(--color-income); }
+.balance-value.negative { color: var(--color-expense); }
+
+/* Esconder seta de números em inputs */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield; /* Firefox */
+}
+input[type="date"] {
+    color-scheme: dark; /* Ajusta o seletor de data para tema escuro */
+}
 
 /* Estilos para o rodapé fixo */
-.fixed-footer {
+.footer-fixed {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
-    /* background-color: #333; (já definido em bg-gray-800 no HTML) */
-    /* color: white; (já definido em text-white no HTML) */
+    background-color: var(--color-secondary);
     padding: 1rem;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-    z-index: 1000; /* Garante que fique acima de outros elementos */
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+    z-index: 999;
     display: flex;
-    justify-content: space-between;
+    justify-content: space-around;
+    flex-wrap: wrap;
     align-items: center;
+    gap: 1rem;
+    border-top: 1px solid var(--color-border);
 }
 
 /* Estilo para o status do Firebase */
 #firebase-status {
+    color: var(--color-text);
     font-size: 0.875rem; /* text-sm */
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    background-color: rgba(255, 255, 255, 0.2);
-    color: #fff;
+    text-align: center;
+    margin-top: 0.5rem; /* mt-2 */
 }
-
-/* Estilos para transações (exemplo, ajuste conforme necessário) */
-.transaction-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 0;
+#firebase-status.success {
+    color: var(--color-income); /* Verde */
 }
-
-.transaction-item.income {
-    color: #10B981; /* green-500 */
-}
-
-.transaction-item.expense {
-    color: #EF4444; /* red-500 */
-}
-
-.transaction-actions button {
-    margin-left: 0.5rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.875rem;
-    transition: background-color 0.3s;
-}
-
-.transaction-actions .edit-btn {
-    background-color: #3B82F6; /* blue-500 */
-    color: white;
-}
-
-.transaction-actions .edit-btn:hover {
-    background-color: #2563EB; /* blue-600 */
-}
-
-.transaction-actions .delete-btn {
-    background-color: #EF4444; /* red-500 */
-    color: white;
-}
-
-.transaction-actions .delete-btn:hover {
-    background-color: #DC2626; /* red-600 */
-}
-
-/* Esconder formulário de autenticação por padrão */
-#auth-forms {
-    display: none;
-}
-
-/* Esconder seção de transações por padrão */
-#transaction-section {
-    display: none;
+#firebase-status.error {
+    color: var(--color-expense); /* Vermelho */
 }

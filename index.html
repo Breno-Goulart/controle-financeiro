@@ -4,18 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle Financeiro</title>
+    <!-- Tailwind CSS (via CDN) -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="bg-dark-bg text-white font-inter min-h-screen flex flex-col">
 
+    <!-- Firebase Status Display -->
     <div id="firebase-status" class="text-center py-2 text-sm">Conectando ao Firebase...</div>
 
+    <!-- Auth Modal -->
     <div id="auth-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
         <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
             <h2 class="text-2xl font-bold mb-6 text-center">Acesse sua Conta</h2>
 
+            <!-- Login Form -->
             <form id="login-form" class="space-y-4">
                 <div>
                     <label for="login-email" class="block text-sm font-medium text-gray-300">E-mail</label>
@@ -31,6 +37,7 @@
                 </div>
             </form>
 
+            <!-- Register Form (hidden by default) -->
             <form id="register-form" class="space-y-4 hidden">
                 <div>
                     <label for="register-name" class="block text-sm font-medium text-gray-300">Nome</label>
@@ -57,13 +64,15 @@
             </div>
             <div class="mt-6 text-center">
                 <button id="google-login-btn" class="w-full bg-white text-gray-800 py-2 px-4 rounded-md shadow-sm hover:bg-gray-100 flex items-center justify-center">
-                    <img src="img/google_logo.svg" alt="Google Logo" class="w-5 h-5 mr-2">
+                    <!-- Google Logo embutido como SVG Data URI (correção do 404) -->
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='20px' height='20px'%3E%3Cpath fill='%23FFC107' d='M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.083 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 8.065 3.09l5.661-5.661C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z'/%3E%3Cpath fill='%23FF3D00' d='M6.306 14.691L11.649 18.06C13.626 14.887 17.694 12 24 12c3.059 0 5.842 1.154 8.065 3.09l5.661-5.661C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20c0-1.341-.138-2.65-.389-3.917z'/%3E%3Cpath fill='%234CAF50' d='M24 44c5.166 0 9.86-1.97 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.734L4.823 35.165C8.924 39.73 15.901 44 24 44z'/%3E%3Cpath fill='%231976D2' d='M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.083 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 8.065 3.09l5.661-5.661C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20c0-1.341-.138-2.65-.389-3.917z'/%3E%3C/svg%3E" alt="Google Logo" class="w-5 h-5 mr-2">
                     Entrar com Google
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- Main Content (Dashboard) -->
     <header class="bg-gray-800 p-4 flex justify-between items-center shadow-md">
         <div>
             <h1 class="text-2xl font-bold">Controle Financeiro</h1>
@@ -75,6 +84,7 @@
     </header>
 
     <main id="dashboard" class="container mx-auto p-4 flex-grow hidden">
+        <!-- Household ID Section -->
         <section class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
             <h2 class="text-xl font-semibold mb-4 text-center">Chave de Acesso (ID da Família/Grupo)</h2>
             <p id="current-household-display" class="text-gray-400 text-center mb-4 text-sm"></p>
@@ -84,6 +94,7 @@
             </div>
         </section>
 
+        <!-- Transaction Form -->
         <section class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
             <h2 class="text-xl font-semibold mb-4 text-center">Adicionar/Editar Lançamento</h2>
             <form id="transaction-form" class="space-y-4">
@@ -169,6 +180,7 @@
             </form>
         </section>
 
+        <!-- Monthly Summary -->
         <section class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
             <h2 class="text-xl font-semibold mb-4 text-center">Resumo Mensal</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
@@ -191,6 +203,7 @@
             </div>
         </section>
 
+        <!-- Filters -->
         <section class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
             <h2 class="text-xl font-semibold mb-4 text-center">Filtros de Lançamentos</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
@@ -206,10 +219,12 @@
             <div>
                 <label class="block text-sm font-medium text-gray-300 mb-2">Meses</label>
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 months-checkboxes">
-                    </div>
+                    <!-- Checkboxes for months will be generated by JS -->
+                </div>
             </div>
         </section>
 
+        <!-- Transactions Table -->
         <section class="bg-gray-800 p-6 rounded-lg shadow-lg">
             <h2 class="text-xl font-semibold mb-4 text-center">Todos os Lançamentos</h2>
             <div class="overflow-x-auto">
@@ -228,6 +243,7 @@
                         </tr>
                     </thead>
                     <tbody id="transactions-table-body" class="bg-gray-900 divide-y divide-gray-700">
+                        <!-- Transactions will be loaded here by JS -->
                         <tr><td colspan="9" class="py-4 text-center">Carregando lançamentos...</td></tr>
                     </tbody>
                 </table>
@@ -235,10 +251,12 @@
         </section>
     </main>
 
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     
+    <!-- Your App JS -->
     <script src="js/app.js"></script>
 </body>
 </html>

@@ -47,6 +47,8 @@ const transactionDescriptionInput = document.getElementById('transaction-descrip
 const transactionDateInput = document.getElementById('transaction-date');
 const transactionCurrentParcelInput = document.getElementById('transaction-current-parcel');
 const transactionTotalParcelsSelect = document.getElementById('transaction-total-parcels');
+const transactionSubmitButton = document.getElementById('transaction-submit-btn'); // Novo: botão de submit do form
+const cancelEditButton = document.getElementById('cancel-edit-btn'); // Novo: botão de cancelar edição
 
 const transactionsTableBody = document.getElementById('transactions-table-body');
 
@@ -69,6 +71,7 @@ const currentHouseholdDisplay = document.getElementById('current-household-displ
 let currentUserId = null;
 let currentUserName = null;
 let currentHouseholdId = localStorage.getItem('householdId') || ''; // Carrega do localStorage
+let editingTransactionId = null; // Variável para controlar o ID da transação em edição
 
 // --- Funções de Autenticação ---
 const updateUIForAuthStatus = (user) => {
@@ -210,21 +213,20 @@ function updateHouseholdDisplay() {
     }
 }
 
-// --- Funções de Transação ---
+// --- Funções de Transação (Adicionar/Atualizar) ---
 
-// Função nomeada para adicionar transação (CORREÇÃO AQUI)
-const addTransaction = async (e) => {
+// Função nomeada para lidar com o envio do formulário (Adicionar ou Editar)
+const handleTransactionSubmit = async (e) => {
     e.preventDefault();
 
-    const currentUser = firebase.auth().currentUser; // Garante que currentUser está atualizado
+    const currentUser = firebase.auth().currentUser;
     if (!currentUser) {
-        alert('Você precisa estar logado para adicionar lançamentos.');
+        alert('Você precisa estar logado para adicionar/atualizar lançamentos.');
         return;
     }
 
-    // A householdId é usada como um CAMPO no documento, não no caminho da coleção
     if (!currentHouseholdId) {
-        alert('Por favor, defina uma Chave de Acesso (ID da Família/Grupo) para adicionar lançamentos.');
+        alert('Por favor, defina uma Chave de Acesso (ID da Família/Grupo).');
         return;
     }
 
@@ -251,48 +253,61 @@ const addTransaction = async (e) => {
         userId: currentUser.uid, // O ID do usuário que fez o lançamento
         userName: currentUserName,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        householdId: currentHouseholdId, // Isso adicionará a householdId como um campo dentro do documento
+        householdId: currentHouseholdId, // A householdId é um campo dentro do documento
     };
 
     try {
-        console.log(`Tentando adicionar transação para o caminho fixo: public/data/lancamentos (com campo householdId: "${currentHouseholdId}")`);
-        // Caminho fixo para sua estrutura no Firebase
         const transactionRef = db.collection('public').doc('data').collection('lancamentos');
 
-        if (totalParcels > 1) {
-            for (let i = 1; i <= totalParcels; i++) {
-                const parcelDate = new Date(date);
-                parcelDate.setMonth(parcelDate.getMonth() + (i - 1)); // Avança o mês para cada parcela
+        if (editingTransactionId) {
+            // Lógica de Atualização
+            console.log(`Tentando atualizar transação ${editingTransactionId} no caminho fixo: public/data/lancamentos`);
+            await transactionRef.doc(editingTransactionId).update({
+                ...transactionData,
+                createdAt: transactionData.createdAt // Não alterar o createdAt ao editar
+            });
+            alert('Lançamento atualizado com sucesso!');
+            editingTransactionId = null; // Reseta o ID de edição
+            transactionSubmitButton.textContent = 'Adicionar Lançamento'; // Restaura o texto do botão
+            cancelEditButton.classList.add('hidden'); // Esconde o botão de cancelar
+        } else {
+            // Lógica de Adição (parcelado ou não)
+            console.log(`Tentando adicionar transação para o caminho fixo: public/data/lancamentos (com campo householdId: "${currentHouseholdId}")`);
+            if (totalParcels > 1) {
+                for (let i = 1; i <= totalParcels; i++) {
+                    const parcelDate = new Date(date);
+                    parcelDate.setMonth(parcelDate.getMonth() + (i - 1)); // Avança o mês para cada parcela
 
+                    await transactionRef.add({
+                        ...transactionData,
+                        date: firebase.firestore.Timestamp.fromDate(parcelDate),
+                        parcel: i,
+                        totalParcels: totalParcels,
+                        originalDate: firebase.firestore.Timestamp.fromDate(new Date(date)),
+                    });
+                }
+                alert(`Lançamento parcelado (${totalParcels}x) adicionado com sucesso!`);
+            } else {
                 await transactionRef.add({
                     ...transactionData,
-                    date: firebase.firestore.Timestamp.fromDate(parcelDate),
-                    parcel: i,
-                    totalParcels: totalParcels,
+                    parcel: 1,
+                    totalParcels: 1,
                     originalDate: firebase.firestore.Timestamp.fromDate(new Date(date)),
                 });
+                alert(`Lançamento adicionado com sucesso!`);
             }
-            alert(`Lançamento parcelado (${totalParcels}x) adicionado com sucesso em public/data/lancamentos!`);
-        } else {
-            await transactionRef.add({
-                ...transactionData,
-                parcel: 1,
-                totalParcels: 1,
-                originalDate: firebase.firestore.Timestamp.fromDate(new Date(date)),
-            });
-            alert(`Lançamento adicionado com sucesso em public/data/lancamentos!`);
         }
         transactionForm.reset();
         transactionTotalParcelsSelect.value = 1; // Reseta o seletor de parcelas
     } catch (error) {
-        console.error("Erro ao adicionar transação:", error);
-        alert(`Erro ao adicionar transação: ${error.message}`);
+        console.error("Erro ao adicionar/atualizar transação:", error);
+        alert(`Erro ao adicionar/atualizar transação: ${error.message}`);
     }
-}; // Fim da função addTransaction
+};
 
 // Carregar transações
 const loadTransactions = () => {
-    const currentUser = firebase.auth().currentUser; // Garante que currentUser está atualizado
+    const currentUser = firebase.auth().currentUser;
 
     if (!currentUser) {
         console.warn('Usuário não logado. Não é possível carregar lançamentos.');
@@ -308,28 +323,25 @@ const loadTransactions = () => {
         return;
     }
 
-    console.log(`Tentando carregar lançamentos do caminho fixo: public/data/lancamentos`);
+    console.log(`Tentando carregar lançamentos do caminho: public/data/lancamentos com householdId: "${currentHouseholdId}"`);
 
-    // Caminho fixo para sua estrutura no Firebase
     let query = db.collection('public').doc('data').collection('lancamentos');
 
-    // Se a householdId é um CAMPO dentro do documento, e você quer filtrar por ela:
-    if (currentHouseholdId) {
-        console.log(`Aplicando filtro de campo householdId === "${currentHouseholdId}"`);
-        query = query.where('householdId', '==', currentHouseholdId);
-    }
+    // APENAS PARA CONSULTA NO FIRESTORE: Filtra por householdId E ordena por data
+    // Isso requer um índice composto no Firebase: householdId ASC, date DESC
+    query = query.where('householdId', '==', currentHouseholdId).orderBy('date', 'desc');
 
 
     const selectedYear = filterYearSelect.value;
     const selectedMonths = Array.from(monthsCheckboxesDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
     const searchDescription = filterDescriptionInput.value.toLowerCase().trim();
 
-    query.orderBy('date', 'desc').onSnapshot(snapshot => {
+    query.onSnapshot(snapshot => {
         let transactions = [];
-        console.log(`Snapshot recebido para public/data/lancamentos. Número de documentos brutos (após filtro de householdId se aplicado): ${snapshot.size}`);
+        console.log(`Snapshot recebido para public/data/lancamentos. Documentos brutos do Firebase (após filtro de householdId e ordenação): ${snapshot.size}`);
 
         if (snapshot.empty) {
-            console.log(`Nenhum documento encontrado para o caminho ou as regras do Firebase estão bloqueando o acesso, ou nenhum lançamento corresponde à householdId: "${currentHouseholdId}".`);
+            console.log(`Nenhum documento encontrado para o caminho, ou as regras do Firebase estão bloqueando o acesso, ou nenhum lançamento corresponde à householdId: "${currentHouseholdId}".`);
         }
 
         snapshot.forEach(doc => {
@@ -360,6 +372,8 @@ const loadTransactions = () => {
         let errorMessage = 'Erro ao carregar lançamentos. Verifique sua conexão ou Chave de Acesso.';
         if (error.code === 'permission-denied') {
             errorMessage = 'Permissão negada! Verifique as regras de segurança do Firebase Firestore.';
+        } else if (error.code === 'failed-precondition' && error.message.includes('The query requires an index')) {
+            errorMessage = `Erro: A consulta requer um índice. Por favor, crie-o no Firebase Console clicando neste link: ${error.message.match(/https:\/\/[^\s]+/)[0]}`;
         }
         transactionsTableBody.innerHTML = `<tr><td colspan="9" class="py-4 text-center text-red-500">${errorMessage}</td></tr>`;
         clearMonthlySummary();
@@ -391,7 +405,8 @@ const displayTransactions = (transactions) => {
             <td class="py-2 px-4">${transaction.category}</td>
             <td class="py-2 px-4">${transaction.type === 'entrada' ? 'Entrada' : 'Saída'}</td>
             <td class="py-2 px-4">${recurrenceText}</td>
-            <td class="py-2 px-4">${householdIdDisplay}</td> <td class="py-2 px-4">
+            <td class="py-2 px-4">${householdIdDisplay}</td>
+            <td class="py-2 px-4">
                 <button class="bg-blue-600 hover:bg-blue-700 text-white text-sm py-1 px-2 rounded-md edit-btn" data-id="${transaction.id}">Editar</button>
                 <button class="bg-red-600 hover:bg-red-700 text-white text-sm py-1 px-2 rounded-md delete-btn" data-id="${transaction.id}">Excluir</button>
             </td>
@@ -403,22 +418,91 @@ const displayTransactions = (transactions) => {
 };
 
 const editTransaction = async (id) => {
-    alert(`Funcionalidade de edição para ${id} será implementada.`);
+    if (!currentUserId || !currentHouseholdId) {
+        alert('Faça login e defina a Chave de Acesso para editar.');
+        return;
+    }
+
+    try {
+        const docRef = db.collection('public').doc('data').collection('lancamentos').doc(id);
+        const doc = await docRef.get();
+
+        if (!doc.exists) {
+            alert('Lançamento não encontrado.');
+            return;
+        }
+
+        const data = doc.data();
+
+        // Verificação de Autorização: A householdId deve ser a mesma E o usuário deve ser o criador
+        if (data.householdId !== currentHouseholdId || data.userId !== currentUserId) {
+            alert('Você não tem permissão para editar este lançamento ou ele não pertence à sua Chave de Acesso.');
+            return;
+        }
+
+        editingTransactionId = id; // Define o ID da transação em edição
+
+        // Preenche o formulário com os dados da transação
+        transactionDateInput.value = data.date.toDate().toISOString().split('T')[0];
+        transactionDescriptionInput.value = data.description;
+        transactionValueInput.value = data.value;
+        document.querySelector(`input[name="transaction-type"][value="${data.type}"]`).checked = true;
+        transactionCategorySelect.value = data.category;
+        transactionRecurringCheckbox.checked = data.isRecurring;
+        transactionTotalParcelsSelect.value = data.totalParcels || 1; // Preenche parcelas
+
+        transactionSubmitButton.textContent = 'Atualizar Lançamento'; // Altera o texto do botão
+        cancelEditButton.classList.remove('hidden'); // Mostra o botão de cancelar edição
+        window.scrollTo({ top: 0, behavior: 'smooth' }); // Rola para o topo do formulário
+    } catch (error) {
+        console.error("Erro ao carregar lançamento para edição:", error);
+        alert(`Erro ao carregar lançamento para edição: ${error.message}`);
+    }
+};
+
+const cancelEdit = () => {
+    editingTransactionId = null; // Reseta o ID de edição
+    transactionForm.reset(); // Limpa o formulário
+    transactionSubmitButton.textContent = 'Adicionar Lançamento'; // Restaura o texto do botão
+    cancelEditButton.classList.add('hidden'); // Esconde o botão de cancelar
+    transactionTotalParcelsSelect.value = 1; // Reseta o seletor de parcelas
+    const today = new Date(); // Resetar a data para hoje
+    const year = today.getFullYear();
+    const month = (today.getMonth() + 1).toString().padStart(2, '0');
+    const day = today.getDate().toString().padStart(2, '0');
+    transactionDateInput.value = `${year}-${month}-${day}`;
 };
 
 // Delete transaction function
 const deleteTransaction = async (id) => {
-    if (!currentHouseholdId) { // Manter a verificação para ter certeza que há uma householdId ativa
-        alert('Nenhuma Chave de Acesso definida. Não é possível excluir lançamentos relacionados a uma householdId específica.');
+    if (!currentUserId || !currentHouseholdId) {
+        alert('Faça login e defina a Chave de Acesso para excluir lançamentos.');
         return;
     }
+
     if (!confirm('Tem certeza que deseja excluir este lançamento?')) {
         return;
     }
+
     try {
-        console.log(`Tentando excluir transação ${id} do caminho fixo: public/data/lancamentos`);
-        // Caminho fixo para sua estrutura no Firebase
-        await db.collection('public').doc('data').collection('lancamentos').doc(id).delete();
+        const docRef = db.collection('public').doc('data').collection('lancamentos').doc(id);
+        const doc = await docRef.get();
+
+        if (!doc.exists) {
+            alert('Lançamento não encontrado para exclusão.');
+            return;
+        }
+
+        const data = doc.data();
+
+        // Verificação de Autorização: A householdId deve ser a mesma E o usuário deve ser o criador
+        if (data.householdId !== currentHouseholdId || data.userId !== currentUserId) {
+            alert('Você não tem permissão para excluir este lançamento ou ele não pertence à sua Chave de Acesso.');
+            return;
+        }
+
+        console.log(`Tentando excluir transação ${id} do caminho: public/data/lancamentos`);
+        await docRef.delete();
         alert('Lançamento excluído com sucesso!');
     } catch (error) {
         alert(`Erro ao excluir lançamento: ${error.message}`);
@@ -517,7 +601,7 @@ const renderMonthCheckboxes = () => {
         { name: 'Janeiro', value: 1 }, { name: 'Fevereiro', value: 2 }, { name: 'Março', value: 3 },
         { name: 'Abril', value: 4 }, { name: 'Maio', value: 5 }, { name: 'Junho', value: 6 },
         { name: 'Julho', value: 7 }, { name: 'Agosto', value: 8 }, { name: 'Setembro', value: 9 },
-        { name: 'Outubro', value: 10 }, { name: 'Novembro', value: 11 }, { name: 'Dezembro', value: 12 }
+        { name: 'Outubro', value: 10 }, { name: 'Novembro', 11: 11 }, { name: 'Dezembro', value: 12 }
     ];
 
     months.forEach(month => {
@@ -542,8 +626,8 @@ const renderMonthCheckboxes = () => {
 filterYearSelect.addEventListener('change', loadTransactions);
 filterDescriptionInput.addEventListener('input', loadTransactions);
 monthsCheckboxesDiv.addEventListener('change', loadTransactions);
-// O event listener para o formulário de transação agora referencia a função nomeada addTransaction
-transactionForm.addEventListener('submit', addTransaction);
+transactionForm.addEventListener('submit', handleTransactionSubmit); // Agora usa a função handleTransactionSubmit
+cancelEditButton.addEventListener('click', cancelEdit); // Event listener para cancelar edição
 
 
 // Define a data atual como padrão para o input de data

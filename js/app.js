@@ -1,306 +1,459 @@
-// firebase-config.js content integrado aqui
+// Este arquivo deve ser salvo em 'js/app.js'
+
+// Configuração do Firebase - SUAS CHAVES JÁ FORAM INSERIDAS AQUI!
 const firebaseConfig = {
-    apiKey: "SUA_API_KEY", // Substitua pela sua chave
+    apiKey: "AIzaSyD998NH9Vco8Yfk-7n3XgMjLW-LkQkAgLA",
     authDomain: "controle-financeiro-c1a0b.firebaseapp.com",
     projectId: "controle-financeiro-c1a0b",
-    storageBucket: "controle-financeiro-c1a0b.appspot.com",
-    messagingSenderId: "SEU_MESSAGING_SENDER_ID", // Substitua pelo seu ID
-    appId: "SEU_APP_ID" // Substitua pelo seu ID
+    storageBucket: "controle-financeiro-c1a0b.firebasestorage.app",
+    messagingSenderId: "471645962387",
+    appId: "1:471645962387:web:fd500fdeb62475596c0d66"
 };
 
-// Inicialize o Firebase
-firebase.initializeApp(firebaseConfig);
+// Inicializa o Firebase e verifica a conexão
+let db;
+const firebaseStatusDiv = document.getElementById('firebase-status');
 
-// Referências aos serviços do Firebase
-const auth = firebase.auth();
-const db = firebase.firestore();
+try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    firebaseStatusDiv.textContent = 'Conexão Firebase: OK';
+    firebaseStatusDiv.classList.add('success');
+    console.log('Firebase inicializado com sucesso.');
+} catch (error) {
+    firebaseStatusDiv.textContent = `Conexão Firebase: ERRO - ${error.message}`;
+    firebaseStatusDiv.classList.add('error');
+    console.error('Erro ao inicializar Firebase:', error);
+}
 
-// Referências aos elementos do DOM
+// Elementos do DOM
+const authModal = document.getElementById('auth-modal');
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const showRegisterLink = document.getElementById('show-register');
+const showLoginLink = document.getElementById('show-login');
+const logoutButton = document.getElementById('logout-button');
+const dashboardSection = document.getElementById('dashboard');
+const loggedUserNameSpan = document.getElementById('logged-user-name');
 const googleLoginBtn = document.getElementById('google-login-btn');
-const emailSignupBtn = document.getElementById('email-signup-btn');
-const emailLoginBtn = document.getElementById('email-login-btn');
-const logoutBtn = document.getElementById('logout-btn');
-const authButtons = document.getElementById('auth-buttons');
-const userInfo = document.getElementById('user-info');
-const userDisplay = document.getElementById('user-display');
-const authForms = document.getElementById('auth-forms');
-const authFormTitle = document.getElementById('auth-form-title');
-const emailInput = document.getElementById('email-input');
-const passwordInput = document.getElementById('password-input');
-const submitAuthBtn = document.getElementById('submit-auth-btn');
-const cancelAuthBtn = document.getElementById('cancel-auth-btn');
-const transactionSection = document.getElementById('transaction-section');
-const transactionDescriptionInput = document.getElementById('transaction-description');
-const transactionAmountInput = document.getElementById('transaction-amount');
+const forgotPasswordLink = document.getElementById('forgot-password-link');
+
+const transactionForm = document.getElementById('transaction-form');
+const transactionValueInput = document.getElementById('transaction-value');
 const transactionTypeSelect = document.getElementById('transaction-type');
+const transactionCategorySelect = document.getElementById('transaction-category');
+const transactionRecurringCheckbox = document.getElementById('transaction-recurring');
+const transactionDescriptionInput = document.getElementById('transaction-description');
 const transactionDateInput = document.getElementById('transaction-date');
-const installmentsSelect = document.getElementById('installments'); // Novo seletor de parcelas
-const addTransactionBtn = document.getElementById('add-transaction-btn');
-const transactionsList = document.getElementById('transactions-list');
-const monthlySummaryDiv = document.getElementById('monthly-summary'); // Novo elemento para resumo mensal
-const firebaseStatusDiv = document.getElementById('firebase-status'); // Novo elemento para status do Firebase
+const transactionKeyInput = document.getElementById('transaction-key');
+const transactionCurrentParcelInput = document.getElementById('transaction-current-parcel');
+const transactionTotalParcelsSelect = document.getElementById('transaction-total-parcels'); // Seletor de parcelas
 
-let currentUser = null;
-let currentAuthMode = ''; // 'signup' ou 'login'
+const transactionsTableBody = document.getElementById('transactions-table-body');
 
-// --- Funções de Autenticação ---
+// Elementos do resumo mensal (agora no rodapé)
+const totalEntradasSpan = document.getElementById('total-entradas');
+const totalSaidasSpan = document.getElementById('total-saidas');
+const mediaGastoDiarioSpan = document.getElementById('media-gasto-diario');
+const saldoMesSpan = document.getElementById('saldo-mes');
 
-// Provedor de autenticação Google
-const googleProvider = new firebase.auth.GoogleAuthProvider();
+// Filtros
+const filterYearSelect = document.getElementById('filter-year');
+const filterDescriptionInput = document.getElementById('filter-description');
+const monthsCheckboxesDiv = document.querySelector('.months-checkboxes');
 
-// Login com Google
-googleLoginBtn.addEventListener('click', async () => {
-    try {
-        await auth.signInWithPopup(googleProvider);
-    } catch (error) {
-        console.error("Erro no login com Google:", error);
-        alert(`Erro no login com Google: ${error.message}`);
-    }
-});
+let currentUserId = null;
+let currentUserName = null;
 
-// Exibir formulário de cadastro/login
-emailSignupBtn.addEventListener('click', () => {
-    authFormTitle.textContent = 'Cadastrar com E-mail';
-    submitAuthBtn.textContent = 'Cadastrar';
-    currentAuthMode = 'signup';
-    authForms.classList.remove('hidden');
-    authButtons.classList.add('hidden');
-    transactionSection.classList.add('hidden');
-});
-
-emailLoginBtn.addEventListener('click', () => {
-    authFormTitle.textContent = 'Login com E-mail';
-    submitAuthBtn.textContent = 'Login';
-    currentAuthMode = 'login';
-    authForms.classList.remove('hidden');
-    authButtons.classList.add('hidden');
-    transactionSection.classList.add('hidden');
-});
-
-cancelAuthBtn.addEventListener('click', () => {
-    authForms.classList.add('hidden');
-    authButtons.classList.remove('hidden');
-    // Se o usuário já estiver logado, mostre a seção de transações
-    if (currentUser) {
-        transactionSection.classList.remove('hidden');
-    }
-    emailInput.value = '';
-    passwordInput.value = '';
-});
-
-submitAuthBtn.addEventListener('click', async () => {
-    const email = emailInput.value;
-    const password = passwordInput.value;
-
-    if (!email || !password) {
-        alert('Por favor, preencha e-mail e senha.');
-        return;
-    }
-
-    try {
-        if (currentAuthMode === 'signup') {
-            await auth.createUserWithEmailAndPassword(email, password);
-            alert('Cadastro realizado com sucesso!');
-        } else {
-            await auth.signInWithEmailAndPassword(email, password);
-            alert('Login realizado com sucesso!');
-        }
-        authForms.classList.add('hidden');
-        emailInput.value = '';
-        passwordInput.value = '';
-    } catch (error) {
-        console.error(`Erro no ${currentAuthMode}:`, error);
-        alert(`Erro no ${currentAuthMode}: ${error.message}`);
-    }
-});
-
-// Logout
-logoutBtn.addEventListener('click', async () => {
-    try {
-        await auth.signOut();
-    } catch (error) {
-        console.error("Erro ao sair:", error);
-        alert(`Erro ao sair: ${error.message}`);
-    }
-});
-
-// Observador de estado de autenticação
-auth.onAuthStateChanged(user => {
+// Funções de Autenticação
+const updateUIForAuthStatus = (user) => {
     if (user) {
-        currentUser = user;
-        userDisplay.textContent = `Olá, ${user.displayName || user.email}!`;
-        authButtons.classList.add('hidden');
-        userInfo.classList.remove('hidden');
-        transactionSection.classList.remove('hidden');
-        loadTransactions(user.uid); // Carrega transações do usuário logado
+        currentUserId = user.uid;
+        currentUserName = user.displayName || user.email;
+        loggedUserNameSpan.textContent = `Olá, ${currentUserName}!`;
+        logoutButton.classList.remove('hidden');
+        dashboardSection.classList.remove('hidden');
+        authModal.style.display = 'none';
+        loadTransactions();
+        populateFilterYears();
+        renderMonthCheckboxes();
+        updateMonthlySummary(); // Atualiza o resumo ao logar
     } else {
-        currentUser = null;
-        authButtons.classList.remove('hidden');
-        userInfo.classList.add('hidden');
-        transactionSection.classList.add('hidden');
-        transactionsList.innerHTML = ''; // Limpa a lista de transações
-        monthlySummaryDiv.textContent = ''; // Limpa o resumo mensal
-        authForms.classList.add('hidden'); // Esconde formulários de auth se não logado
+        currentUserId = null;
+        currentUserName = null;
+        loggedUserNameSpan.textContent = '';
+        logoutButton.classList.add('hidden');
+        dashboardSection.classList.add('hidden');
+        authModal.style.display = 'flex';
+        transactionsTableBody.innerHTML = ''; // Limpa a tabela
+        clearMonthlySummary(); // Limpa o resumo ao deslogar
     }
-});
+};
 
-// --- Funções de Transação ---
-
-// Adicionar transação
-addTransactionBtn.addEventListener('click', async () => {
-    if (!currentUser) {
-        alert('Você precisa estar logado para adicionar transações.');
-        return;
-    }
-
-    const description = transactionDescriptionInput.value;
-    const amount = parseFloat(transactionAmountInput.value);
-    const type = transactionTypeSelect.value;
-    const date = transactionDateInput.value;
-    const installments = parseInt(installmentsSelect.value); // Pega o número de parcelas
-
-    if (!description || isNaN(amount) || !date) {
-        alert('Por favor, preencha todos os campos: Descrição, Valor e Data.');
-        return;
-    }
-
+const handleLogin = async (e) => {
+    e.preventDefault();
+    const email = loginForm['login-email'].value;
+    const password = loginForm['login-password'].value;
     try {
-        const transactionRef = db.collection('users').doc(currentUser.uid).collection('transactions');
-
-        // Lógica para parcelas
-        for (let i = 0; i < installments; i++) {
-            const transactionDate = new Date(date);
-            transactionDate.setMonth(transactionDate.getMonth() + i); // Adiciona meses para cada parcela
-
-            const newTransaction = {
-                description: installments > 1 ? `${description} (${i + 1}/${installments})` : description,
-                amount: amount,
-                type: type,
-                date: firebase.firestore.Timestamp.fromDate(transactionDate), // Salva como Timestamp
-                installmentsTotal: installments, // Salva o total de parcelas
-                installmentNumber: i + 1 // Salva o número da parcela atual
-            };
-            await transactionRef.add(newTransaction);
-        }
-
-        alert('Transação(ões) adicionada(s) com sucesso!');
-        transactionDescriptionInput.value = '';
-        transactionAmountInput.value = '';
-        transactionDateInput.value = '';
-        installmentsSelect.value = '1'; // Reseta o seletor de parcelas
-        loadTransactions(currentUser.uid); // Recarrega a lista
+        await firebase.auth().signInWithEmailAndPassword(email, password);
     } catch (error) {
-        console.error("Erro ao adicionar transação:", error);
-        alert(`Erro ao adicionar transação: ${error.message}`);
+        alert(`Erro de login: ${error.message}`);
+        console.error("Erro de login:", error);
     }
-});
+};
 
+const handleRegister = async (e) => {
+    e.preventDefault();
+    const name = registerForm['register-name'].value;
+    const email = registerForm['register-email'].value;
+    const password = registerForm['register-password'].value;
+    try {
+        const userCredential = await firebase.auth().createUserWithEmailAndPassword(email, password);
+        await userCredential.user.updateProfile({ displayName: name });
+        alert('Cadastro realizado com sucesso! Faça login.');
+        showLoginForm();
+    } catch (error) {
+        alert(`Erro de cadastro: ${error.message}`);
+        console.error("Erro de cadastro:", error);
+    }
+};
 
-// Carregar transações
-async function loadTransactions(uid) {
-    transactionsList.innerHTML = ''; // Limpa a lista
-    let totalIncome = 0;
-    let totalExpense = 0;
+const handleGoogleLogin = async () => {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    try {
+        await firebase.auth().signInWithPopup(provider);
+    } catch (error) {
+        alert(`Erro de login com Google: ${error.message}`);
+        console.error("Erro de login com Google:", error);
+    }
+};
+
+const handleLogout = async () => {
+    try {
+        await firebase.auth().signOut();
+    } catch (error) {
+        console.error("Erro ao fazer logout:", error);
+    }
+};
+
+const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    const email = prompt("Por favor, digite seu e-mail para resetar a senha:");
+    if (email) {
+        try {
+            await firebase.auth().sendPasswordResetEmail(email);
+            alert("Um e-mail para resetar sua senha foi enviado!");
+        } catch (error) {
+            alert(`Erro ao resetar senha: ${error.message}`);
+            console.error("Erro ao resetar senha:", error);
+        }
+    }
+};
+
+// Exibir/Esconder formulários de autenticação
+const showRegisterForm = () => {
+    loginForm.style.display = 'none';
+    registerForm.style.display = 'flex';
+};
+
+const showLoginForm = () => {
+    loginForm.style.display = 'flex';
+    registerForm.style.display = 'none';
+};
+
+// Event Listeners de Autenticação
+firebase.auth().onAuthStateChanged(updateUIForAuthStatus);
+loginForm.addEventListener('submit', handleLogin);
+registerForm.addEventListener('submit', handleRegister);
+logoutButton.addEventListener('click', handleLogout);
+googleLoginBtn.addEventListener('click', handleGoogleLogin);
+showRegisterLink.addEventListener('click', (e) => { e.preventDefault(); showRegisterForm(); });
+showLoginLink.addEventListener('click', (e) => { e.preventDefault(); showLoginForm(); });
+forgotPasswordLink.addEventListener('click', handleForgotPassword);
+
+// Funções de Transações
+const addTransaction = async (e) => {
+    e.preventDefault();
+
+    if (!currentUserId) {
+        alert('Você precisa estar logado para adicionar lançamentos.');
+        return;
+    }
+
+    const key = transactionKeyInput.value.trim();
+    const date = transactionDateInput.value;
+    const description = transactionDescriptionInput.value.trim();
+    const value = parseFloat(transactionValueInput.value);
+    const category = transactionCategorySelect.value;
+    const type = transactionTypeSelect.value;
+    const isRecurring = transactionRecurringCheckbox.checked;
+    let currentParcel = parseInt(transactionCurrentParcelInput.value);
+    const totalParcels = parseInt(transactionTotalParcelsSelect.value); // Pega do seletor
+
+    if (!key || !date || !description || isNaN(value) || value <= 0 || !category || !type) {
+        alert('Por favor, preencha todos os campos corretamente.');
+        return;
+    }
+
+    const transactionData = {
+        key: key,
+        date: firebase.firestore.Timestamp.fromDate(new Date(date)),
+        description: description,
+        value: value,
+        category: category,
+        type: type,
+        isRecurring: isRecurring,
+        userId: currentUserId,
+        userName: currentUserName,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
 
     try {
-        const snapshot = await db.collection('users').doc(uid).collection('transactions')
-                                .orderBy('date', 'desc') // Ordena por data
-                                .get();
+        if (totalParcels > 1) {
+            for (let i = 1; i <= totalParcels; i++) {
+                const parcelDate = new Date(date);
+                parcelDate.setMonth(parcelDate.getMonth() + (i - 1)); // Avança o mês para cada parcela
 
-        snapshot.forEach(doc => {
-            const transaction = doc.data();
-            const transactionId = doc.id;
-            const amount = transaction.amount;
-            const type = transaction.type;
-            const date = transaction.date.toDate().toLocaleDateString('pt-BR'); // Converte Timestamp para data legível
-
-            if (type === 'income') {
-                totalIncome += amount;
-            } else {
-                totalExpense += amount;
+                await db.collection('transactions').add({
+                    ...transactionData,
+                    date: firebase.firestore.Timestamp.fromDate(parcelDate),
+                    parcel: i,
+                    totalParcels: totalParcels,
+                    originalDate: firebase.firestore.Timestamp.fromDate(new Date(date)), // Salva a data original
+                });
             }
+            alert(`Lançamento parcelado (${totalParcels}x) adicionado com sucesso!`);
+        } else {
+            await db.collection('transactions').add({
+                ...transactionData,
+                parcel: 1, // Assume 1/1 para não parcelado
+                totalParcels: 1,
+                originalDate: firebase.firestore.Timestamp.fromDate(new Date(date)),
+            });
+            alert('Lançamento adicionado com sucesso!');
+        }
+        transactionForm.reset();
+        transactionCurrentParcelInput.value = 1; // Reseta para 1
+        transactionTotalParcelsSelect.value = 1; // Reseta para 1
+    } catch (error) {
+        alert(`Erro ao adicionar lançamento: ${error.message}`);
+        console.error("Erro ao adicionar lançamento:", error);
+    }
+};
 
-            const listItem = document.createElement('li');
-            listItem.className = `transaction-item p-3 border-b border-gray-200 flex justify-between items-center ${type === 'income' ? 'text-green-600' : 'text-red-600'}`;
-            listItem.innerHTML = `
-                <div>
-                    <span class="font-semibold">${transaction.description}</span> - R$ ${amount.toFixed(2)} (${date})
-                    ${transaction.installmentsTotal > 1 ? ` <span class="text-gray-500 text-sm">(${transaction.installmentNumber}/${transaction.installmentsTotal})</span>` : ''}
-                </div>
-                <div class="transaction-actions">
-                    <button class="edit-btn bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded" data-id="${transactionId}">Editar</button>
-                    <button class="delete-btn bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded" data-id="${transactionId}">Excluir</button>
-                </div>
-            `;
-            transactionsList.appendChild(listItem);
+const loadTransactions = () => {
+    if (!currentUserId) return;
+
+    let query = db.collection('transactions').where('userId', '==', currentUserId);
+
+    const selectedYear = filterYearSelect.value;
+    const selectedMonths = Array.from(monthsCheckboxesDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+    const searchDescription = filterDescriptionInput.value.toLowerCase().trim();
+
+    if (selectedYear && selectedYear !== 'all') {
+        const startOfYear = new Date(parseInt(selectedYear), 0, 1);
+        const endOfYear = new Date(parseInt(selectedYear) + 1, 0, 1);
+        query = query.where('date', '>=', startOfYear).where('date', '<', endOfYear);
+    }
+
+    if (selectedMonths.length > 0) {
+        // Para múltiplos meses, precisamos buscar tudo no ano e filtrar no cliente
+        // ou fazer várias consultas (que é mais complexo com Firestore).
+        // Por simplicidade e eficiência em pequenas coleções, filtramos após buscar.
+    }
+
+    query.orderBy('date', 'desc').onSnapshot(snapshot => {
+        let transactions = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            data.id = doc.id;
+            transactions.push(data);
         });
 
-        updateMonthlySummary(totalIncome, totalExpense);
+        // Filtragem por mês e descrição (se necessário)
+        let filteredTransactions = transactions.filter(t => {
+            const transactionDate = t.date.toDate();
+            const transactionYear = transactionDate.getFullYear().toString();
+            const transactionMonth = transactionDate.getMonth() + 1; // Mês é base 0
 
-    } catch (error) {
-        console.error("Erro ao carregar transações:", error);
-        alert(`Erro ao carregar transações: ${error.message}`);
+            const matchesYear = (selectedYear === 'all' || transactionYear === selectedYear);
+            const matchesDescription = searchDescription === '' || t.description.toLowerCase().includes(searchDescription);
+
+            return matchesMonth && matchesDescription;
+        });
+
+        displayTransactions(filteredTransactions);
+        updateMonthlySummary(filteredTransactions);
+    }, error => {
+        console.error("Erro ao carregar lançamentos:", error);
+    });
+};
+
+const displayTransactions = (transactions) => {
+    transactionsTableBody.innerHTML = '';
+    if (transactions.length === 0) {
+        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Nenhum lançamento encontrado.</td></tr>';
+        return;
     }
-}
 
-// Atualizar Resumo Mensal
-function updateMonthlySummary(income, expense) {
-    const balance = income - expense;
-    monthlySummaryDiv.innerHTML = `
-        Receitas: <span class="text-green-400">R$ ${income.toFixed(2)}</span> |
-        Despesas: <span class="text-red-400">R$ ${expense.toFixed(2)}</span> |
-        Saldo: <span class="${balance >= 0 ? 'text-green-400' : 'text-red-400'}">R$ ${balance.toFixed(2)}</span>
-    `;
-}
+    transactions.forEach(transaction => {
+        const row = transactionsTableBody.insertRow();
+        const originalDate = transaction.originalDate ? transaction.originalDate.toDate().toLocaleDateString('pt-BR') : 'N/A';
+        const displayDate = transaction.date.toDate().toLocaleDateString('pt-BR');
+        const valueClass = transaction.type === 'entrada' ? 'text-income' : 'text-expense';
+        const formattedValue = transaction.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const recurrenceText = transaction.isRecurring ? 'Sim' : 'Não';
+        const parcelText = transaction.totalParcels > 1 ? `${transaction.parcel}/${transaction.totalParcels}` : 'N/A';
 
-// Excluir transação
-transactionsList.addEventListener('click', async (e) => {
-    if (e.target.classList.contains('delete-btn')) {
-        const transactionId = e.target.dataset.id;
-        if (confirm('Tem certeza que deseja excluir esta transação?')) {
-            try {
-                await db.collection('users').doc(currentUser.uid).collection('transactions').doc(transactionId).delete();
-                alert('Transação excluída com sucesso!');
-                loadTransactions(currentUser.uid); // Recarrega a lista
-            } catch (error) {
-                console.error("Erro ao excluir transação:", error);
-                alert(`Erro ao excluir transação: ${error.message}`);
-            }
-        }
+        row.innerHTML = `
+            <td class="py-2 px-4">${originalDate}</td>
+            <td class="py-2 px-4">${displayDate} (${parcelText})</td>
+            <td class="py-2 px-4">${transaction.description}</td>
+            <td class="py-2 px-4 ${valueClass}">${formattedValue}</td>
+            <td class="py-2 px-4">${transaction.category}</td>
+            <td class="py-2 px-4">${transaction.type === 'entrada' ? 'Entrada' : 'Saída'}</td>
+            <td class="py-2 px-4">${recurrenceText}</td>
+            <td class="py-2 px-4">${transaction.userName}</td>
+            <td class="py-2 px-4">
+                <button class="bg-blue-600 hover:bg-blue-700 text-white text-sm py-1 px-2 rounded-md edit-btn" data-id="${transaction.id}">Editar</button>
+                <button class="bg-red-600 hover:bg-red-700 text-white text-sm py-1 px-2 rounded-md delete-btn" data-id="${transaction.id}">Excluir</button>
+            </td>
+        `;
+
+        row.querySelector('.edit-btn').addEventListener('click', () => editTransaction(transaction.id));
+        row.querySelector('.delete-btn').addEventListener('click', () => deleteTransaction(transaction.id));
+    });
+};
+
+const editTransaction = async (id) => {
+    // Implementar lógica de edição aqui (ex: abrir modal de edição)
+    alert(`Funcionalidade de edição para ${id} será implementada.`);
+};
+
+const deleteTransaction = async (id) => {
+    if (!confirm('Tem certeza que deseja excluir este lançamento?')) {
+        return;
     }
-    // Lógica para editar transação (a ser implementada)
-    if (e.target.classList.contains('edit-btn')) {
-        const transactionId = e.target.dataset.id;
-        alert(`Funcionalidade de edição para a transação ${transactionId} será implementada em breve!`);
-        // Aqui você implementaria a lógica para carregar os dados da transação no formulário
-        // e permitir a edição.
-    }
-});
-
-// --- Validação de Chave ID do Firebase ---
-// Esta função é chamada uma vez na inicialização
-function checkFirebaseConnectionStatus() {
     try {
-        // Se o Firebase foi inicializado com sucesso, esta linha não dará erro
-        // e podemos considerar a conexão como estabelecida.
-        firebase.app();
-        firebaseStatusDiv.textContent = '✅ Conectado ao Firebase';
-        firebaseStatusDiv.style.backgroundColor = 'rgba(16, 185, 129, 0.5)'; // green-500 com transparência
+        await db.collection('transactions').doc(id).delete();
+        alert('Lançamento excluído com sucesso!');
     } catch (error) {
-        firebaseStatusDiv.textContent = '❌ Erro de Conexão Firebase';
-        firebaseStatusDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.5)'; // red-500 com transparência
-        console.error("Erro ao verificar conexão Firebase:", error);
+        alert(`Erro ao excluir lançamento: ${error.message}`);
+        console.error("Erro ao excluir lançamento:", error);
     }
-}
+};
 
-// Chama a função de verificação de status quando o DOM estiver carregado
-document.addEventListener('DOMContentLoaded', checkFirebaseConnectionStatus);
+// Funções de Resumo Mensal
+const updateMonthlySummary = (transactions = []) => {
+    const selectedYear = filterYearSelect.value;
+    const selectedMonths = Array.from(monthsCheckboxesDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
 
-// Define a data atual como padrão para o input de data
-document.addEventListener('DOMContentLoaded', () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = (today.getMonth() + 1).toString().padStart(2, '0');
-    const day = today.getDate().toString().padStart(2, '0');
-    transactionDateInput.value = `${year}-${month}-${day}`;
-});
+    // Filtra transações apenas para o ano e meses selecionados no resumo
+    let transactionsForSummary = transactions.filter(t => {
+        const transactionDate = t.date.toDate();
+        const transactionYear = transactionDate.getFullYear().toString();
+        const transactionMonth = transactionDate.getMonth() + 1; // Mês é base 0
+
+        const matchesYear = (selectedYear === 'all' || transactionYear === selectedYear);
+        const matchesMonth = selectedMonths.length === 0 || selectedMonths.includes(transactionMonth);
+
+        return matchesYear && matchesMonth;
+    });
+
+    let totalEntradas = 0;
+    let totalSaidas = 0;
+    let daysInMonth = 0;
+
+    if (selectedMonths.length === 1 && selectedYear && selectedYear !== 'all') {
+        const month = selectedMonths[0];
+        daysInMonth = new Date(parseInt(selectedYear), month, 0).getDate();
+    } else if (selectedMonths.length === 0 && selectedYear && selectedYear !== 'all') {
+        // Se nenhum mês selecionado, mas ano sim, considera todos os dias do ano
+        daysInMonth = (new Date(parseInt(selectedYear) + 1, 0, 1) - new Date(parseInt(selectedYear), 0, 1)) / (1000 * 60 * 60 * 24);
+    } else {
+        // Caso de "todos os anos" ou múltiplos meses, média diária é mais complexa, pode ser 0 ou N/A
+        daysInMonth = 0; // Ou calcular a diferença de dias entre a primeira e a última transação
+    }
+
+
+    transactionsForSummary.forEach(transaction => {
+        if (transaction.type === 'entrada') {
+            totalEntradas += transaction.value;
+        } else {
+            totalSaidas += transaction.value;
+        }
+    });
+
+    const saldoMes = totalEntradas - totalSaidas;
+    const mediaGastoDiario = daysInMonth > 0 ? (totalSaidas / daysInMonth) : 0;
+
+    totalEntradasSpan.textContent = totalEntradas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    totalSaidasSpan.textContent = totalSaidas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    mediaGastoDiarioSpan.textContent = mediaGastoDiario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    saldoMesSpan.textContent = saldoMes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    saldoMesSpan.classList.remove('positive', 'negative');
+    if (saldoMes >= 0) {
+        saldoMesSpan.classList.add('positive');
+    } else {
+        saldoMesSpan.classList.add('negative');
+    }
+};
+
+const clearMonthlySummary = () => {
+    totalEntradasSpan.textContent = 'R$ 0.00';
+    totalSaidasSpan.textContent = 'R$ 0.00';
+    mediaGastoDiarioSpan.textContent = 'R$ 0.00';
+    saldoMesSpan.textContent = 'R$ 0.00';
+    saldoMesSpan.classList.remove('positive', 'negative');
+};
+
+
+// Funções de Filtro
+const populateFilterYears = () => {
+    const currentYear = new Date().getFullYear();
+    filterYearSelect.innerHTML = '<option value="all">Todos os Anos</option>';
+    for (let i = currentYear; i >= currentYear - 5; i--) { // Últimos 5 anos
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        filterYearSelect.appendChild(option);
+    }
+    filterYearSelect.value = currentYear; // Seleciona o ano atual por padrão
+};
+
+const renderMonthCheckboxes = () => {
+    monthsCheckboxesDiv.innerHTML = '';
+    const months = [
+        { name: 'Janeiro', value: 1 }, { name: 'Fevereiro', value: 2 }, { name: 'Março', value: 3 },
+        { name: 'Abril', value: 4 }, { name: 'Maio', value: 5 }, { name: 'Junho', value: 6 },
+        { name: 'Julho', value: 7 }, { name: 'Agosto', value: 8 }, { name: 'Setembro', value: 9 },
+        { name: 'Outubro', value: 10 }, { name: 'Novembro', value: 11 }, { name: 'Dezembro', value: 12 }
+    ];
+
+    months.forEach(month => {
+        const div = document.createElement('div');
+        div.classList.add('flex', 'items-center');
+        div.innerHTML = `
+            <input type="checkbox" id="month-${month.value}" value="${month.value}" class="form-checkbox h-4 w-4 text-primary rounded border-gray-700 bg-dark-bg focus:ring-primary">
+            <label for="month-${month.value}" class="ml-2 text-sm">${month.name}</label>
+        `;
+        monthsCheckboxesDiv.appendChild(div);
+    });
+
+    // Seleciona o mês atual por padrão (se nenhum checkbox foi marcado antes)
+    const currentMonth = new Date().getMonth() + 1;
+    const currentMonthCheckbox = document.getElementById(`month-${currentMonth}`);
+    if (currentMonthCheckbox) {
+        currentMonthCheckbox.checked = true;
+    }
+};
+
+filterYearSelect.addEventListener('change', loadTransactions);
+filterDescriptionInput.addEventListener('input', loadTransactions);
+monthsCheckboxesDiv.addEventListener('change', loadTransactions);
+transactionForm.addEventListener('submit', addTransaction);
+
+// Inicialização (será chamado por updateUIForAuthStatus se houver login)
+// populateFilterYears();
+// renderMonthCheckboxes();

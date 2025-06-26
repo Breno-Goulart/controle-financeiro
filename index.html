@@ -3,120 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Controle Financeiro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="css/style.css"> <!-- Caminho ajustado para a subpasta css -->
+    <title>Controle Financeiro</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="bg-dark-bg text-gray-200">
-    <header class="bg-secondary p-4 flex justify-between items-center shadow-lg">
-        <h1 class="text-2xl font-bold text-primary">Meu Controle Financeiro</h1>
-        <div id="user-info" class="flex items-center space-x-3">
-            <span id="logged-user-name" class="font-semibold"></span>
-            <button id="logout-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md hidden">Sair</button>
+<body class="bg-dark-bg text-white font-inter min-h-screen flex flex-col">
+
+    <div id="firebase-status" class="text-center py-2 text-sm">Conectando ao Firebase...</div>
+
+    <div id="auth-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-6 text-center">Acesse sua Conta</h2>
+
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="login-email" class="block text-sm font-medium text-gray-300">E-mail</label>
+                    <input type="email" id="login-email" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" required>
+                </div>
+                <div>
+                    <label for="login-password" class="block text-sm font-medium text-gray-300">Senha</label>
+                    <input type="password" id="login-password" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" required>
+                </div>
+                <button type="submit" class="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark">Entrar</button>
+                <div class="text-center text-sm">
+                    <a href="#" id="forgot-password-link" class="text-primary hover:underline">Esqueceu a senha?</a>
+                </div>
+            </form>
+
+            <form id="register-form" class="space-y-4 hidden">
+                <div>
+                    <label for="register-name" class="block text-sm font-medium text-gray-300">Nome</label>
+                    <input type="text" id="register-name" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" required>
+                </div>
+                <div>
+                    <label for="register-email" class="block text-sm font-medium text-gray-300">E-mail</label>
+                    <input type="email" id="register-email" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" required>
+                </div>
+                <div>
+                    <label for="register-password" class="block text-sm font-medium text-gray-300">Senha</label>
+                    <input type="password" id="register-password" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" required>
+                </div>
+                <button type="submit" class="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark">Registrar</button>
+            </form>
+
+            <div class="mt-6 text-center text-sm">
+                <p class="text-gray-400">
+                    Não tem uma conta? <a href="#" id="show-register" class="text-primary hover:underline">Registre-se</a>
+                </p>
+                <p class="text-gray-400 mt-2">
+                    Já tem uma conta? <a href="#" id="show-login" class="text-primary hover:underline">Entrar</a>
+                </p>
+            </div>
+            <div class="mt-6 text-center">
+                <button id="google-login-btn" class="w-full bg-white text-gray-800 py-2 px-4 rounded-md shadow-sm hover:bg-gray-100 flex items-center justify-center">
+                    <img src="img/google_logo.svg" alt="Google Logo" class="w-5 h-5 mr-2">
+                    Entrar com Google
+                </button>
+            </div>
         </div>
-        <div id="firebase-status" class="text-sm font-semibold text-center mt-2"></div> <!-- Status do Firebase -->
+    </div>
+
+    <header class="bg-gray-800 p-4 flex justify-between items-center shadow-md">
+        <div>
+            <h1 class="text-2xl font-bold">Controle Financeiro</h1>
+            <span id="logged-user-name" class="text-gray-400 text-sm"></span>
+        </div>
+        <div>
+            <button id="logout-button" class="bg-red-600 text-white py-1 px-3 rounded-md hover:bg-red-700 hidden">Sair</button>
+        </div>
     </header>
 
-    <main class="container mx-auto p-4 md:p-6">
-        <div id="auth-modal" class="modal fixed inset-0 flex items-center justify-center">
-            <div class="bg-secondary p-8 rounded-lg shadow-xl w-11/12 max-w-md text-center">
-                <h2 class="text-2xl font-bold text-primary mb-6">Acessar</h2>
-                <form id="login-form" class="flex flex-col space-y-4">
-                    <input type="email" id="login-email" placeholder="E-mail" required
-                           class="p-3 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <input type="password" id="login-password" placeholder="Senha" required
-                           class="p-3 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <button type="submit" class="bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-md transition duration-200">Login</button>
-                    <button type="button" id="google-login-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition duration-200 flex items-center justify-center space-x-2">
-                        <!-- Imagem do Google logo embutida como SVG data URI -->
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='20px' height='20px'%3E%3Cpath fill='%23FFC107' d='M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.083 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 8.065 3.09l5.661-5.661C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z'/%3E%3Cpath fill='%23FF3D00' d='M6.306 14.691L11.649 18.06C13.626 14.887 17.694 12 24 12c3.059 0 5.842 1.154 8.065 3.09l5.661-5.661C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20c0-1.341-.138-2.65-.389-3.917z'/%3E%3Cpath fill='%234CAF50' d='M24 44c5.166 0 9.86-1.97 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.734L4.823 35.165C8.924 39.73 15.901 44 24 44z'/%3E%3Cpath fill='%231976D2' d='M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.083 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 8.065 3.09l5.661-5.661C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20c0-1.341-.138-2.65-.389-3.917z'/%3E%3C/svg%3E" alt="Google icon" class="w-5 h-5 flex-shrink-0 align-middle">
-                        <span>Login com Google</span>
-                    </button>
-                    <a href="#" id="forgot-password-link" class="text-sm text-primary hover:underline">Esqueceu a senha?</a>
-                </form>
-                <p class="mt-4 text-sm">Não tem uma conta? <a href="#" id="show-register" class="text-primary hover:underline">Cadastre-se aqui</a></p>
-
-                <form id="register-form" class="flex flex-col space-y-4 mt-6" style="display: none;">
-                    <h2 class="text-2xl font-bold text-primary mb-4">Cadastro</h2>
-                    <input type="text" id="register-name" placeholder="Seu nome" required
-                           class="p-3 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <input type="email" id="register-email" placeholder="E-mail" required
-                           class="p-3 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <input type="password" id="register-password" placeholder="Senha" required
-                           class="p-3 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <button type="submit" class="bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-md transition duration-200">Cadastrar</button>
-                    <p class="mt-4 text-sm">Já tem uma conta? <a href="#" id="show-login" class="text-primary hover:underline">Fazer Login</a></p>
-                </form>
+    <main id="dashboard" class="container mx-auto p-4 flex-grow hidden">
+        <section class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-center">Chave de Acesso (ID da Família/Grupo)</h2>
+            <p id="current-household-display" class="text-gray-400 text-center mb-4 text-sm"></p>
+            <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                <input type="text" id="household-id-input" placeholder="Digite a chave da família/grupo (ex: 123)" class="flex-grow px-4 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-primary focus:border-primary">
+                <button id="set-household-id-btn" class="w-full sm:w-auto bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">Definir Chave</button>
             </div>
-        </div>
+        </section>
 
-        <section id="dashboard" class="hidden space-y-6">
-            <!-- Novo campo householdId -->
-            <div class="bg-secondary p-6 rounded-lg shadow-lg mb-6">
-                <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Configuração de Família/Grupo</h3>
-                <div class="flex flex-col md:flex-row items-center gap-4">
-                    <label for="household-id-input" class="mb-1 text-sm font-semibold md:mb-0">Chave de Acesso (ID da Família/Grupo):</label>
-                    <input type="text" id="household-id-input" placeholder="Ex: minha_casa_2024"
-                           class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary flex-grow">
-                    <button id="set-household-id-btn" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-md transition duration-200">Definir Chave</button>
+        <section class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-center">Adicionar/Editar Lançamento</h2>
+            <form id="transaction-form" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="transaction-date" class="block text-sm font-medium text-gray-300">Data</label>
+                        <input type="date" id="transaction-date" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" required>
+                    </div>
+                    <div>
+                        <label for="transaction-description" class="block text-sm font-medium text-gray-300">Descrição</label>
+                        <input type="text" id="transaction-description" placeholder="Ex: Conta de luz, Salário" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" required>
+                    </div>
                 </div>
-                <p id="current-household-display" class="mt-2 text-sm text-gray-400"></p>
-            </div>
 
-            <div class="bg-secondary p-6 rounded-lg shadow-lg">
-                <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Novo Lançamento</h3>
-                <form id="transaction-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="flex flex-col">
-                        <label for="transaction-date" class="mb-1 text-sm font-semibold">Data da Compra:</label>
-                        <input type="date" id="transaction-date" required
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="transaction-value" class="block text-sm font-medium text-gray-300">Valor (R$)</label>
+                        <input type="number" step="0.01" id="transaction-value" placeholder="0.00" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" required>
                     </div>
-                    <div class="flex flex-col col-span-1 md:col-span-2">
-                        <label for="transaction-description" class="mb-1 text-sm font-semibold">Descrição:</label>
-                        <input type="text" id="transaction-description" placeholder="Ex: Aluguel, Supermercado" required
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                    </div>
-                    <div class="flex flex-col">
-                        <label for="transaction-value" class="mb-1 text-sm font-semibold">Valor (R$):</label>
-                        <input type="number" id="transaction-value" step="0.01" placeholder="Ex: 1500.00" required
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                    </div>
-                    <div class="flex flex-col">
-                        <label class="mb-1 text-sm font-semibold">Tipo:</label>
-                        <div class="flex space-x-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300">Tipo</label>
+                        <div class="mt-1 flex space-x-4">
                             <label class="inline-flex items-center">
                                 <input type="radio" name="transaction-type" value="entrada" class="form-radio h-4 w-4 text-primary" checked>
                                 <span class="ml-2">Entrada</span>
                             </label>
                             <label class="inline-flex items-center">
-                                <input type="radio" name="transaction-type" value="saida" class="form-radio h-4 w-4 text-primary">
+                                <input type="radio" name="transaction-type" value="saida" class="form-radio h-4 w-4 text-red-500">
                                 <span class="ml-2">Saída</span>
                             </label>
                         </div>
                     </div>
-                    <div class="flex flex-col">
-                        <label for="transaction-category" class="mb-1 text-sm font-semibold">Categoria:</label>
-                        <select id="transaction-category" required
-                                class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="transaction-category" class="block text-sm font-medium text-gray-300">Categoria</label>
+                        <select id="transaction-category" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm" required>
                             <option value="">Selecione uma categoria</option>
-                            <option value="Alimentação">Alimentação</option>
-                            <option value="Transporte">Transporte</option>
-                            <option value="Moradia">Moradia</option>
-                            <option value="Lazer">Lazer</option>
-                            <option value="Educação">Educação</option>
-                            <option value="Saúde">Saúde</option>
-                            <option value="Salário">Salário</option>
-                            <option value="Investimento">Investimento</option>
-                            <option value="Outros">Outros</option>
+                            <option value="alimentacao">Alimentação</option>
+                            <option value="transporte">Transporte</option>
+                            <option value="moradia">Moradia</option>
+                            <option value="saude">Saúde</option>
+                            <option value="educacao">Educação</option>
+                            <option value="lazer">Lazer</option>
+                            <option value="salario">Salário</option>
+                            <option value="investimento">Investimento</option>
+                            <option value="outros">Outros</option>
                         </select>
                     </div>
-                    <div class="flex items-center space-x-4 col-span-1 md:col-span-2">
-                        <label for="transaction-current-parcel" class="mb-1 text-sm font-semibold">Parcela Atual:</label>
-                        <input type="number" id="transaction-current-parcel" min="1" value="1"
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary w-20">
-                        <label for="transaction-total-parcels" class="mb-1 text-sm font-semibold">Total de Parcelas:</label>
-                        <select id="transaction-total-parcels" class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary w-20">
-                            <option value="1">1</option>
+                    <div>
+                        <label for="transaction-recurring" class="block text-sm font-medium text-gray-300">Lançamento Recorrente?</label>
+                        <input type="checkbox" id="transaction-recurring" class="form-checkbox h-5 w-5 text-primary rounded border-gray-600 bg-gray-700">
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="transaction-total-parcels" class="block text-sm font-medium text-gray-300">Total de Parcelas (se aplicável)</label>
+                        <select id="transaction-total-parcels" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
+                            <option value="1">1 (Não Parcelado)</option>
                             <option value="2">2</option>
                             <option value="3">3</option>
                             <option value="4">4</option>
@@ -128,70 +156,89 @@
                             <option value="10">10</option>
                             <option value="11">11</option>
                             <option value="12">12</option>
+                            <option value="18">18</option>
+                            <option value="24">24</option>
                         </select>
                     </div>
-                    <div class="flex items-center space-x-2 col-span-1 md:col-span-2">
-                        <input type="checkbox" id="transaction-recurring" class="form-checkbox h-5 w-5 text-primary rounded border-gray-700 bg-dark-bg focus:ring-primary">
-                        <label for="transaction-recurring" class="text-sm font-semibold">Cobrança Recorrente</label>
-                    </div>
-                    <button type="submit" class="col-span-1 md:col-span-2 bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-md transition duration-200">Adicionar Lançamento</button>
-                </form>
-            </div>
+                </div>
 
-            <div class="bg-secondary p-6 rounded-lg shadow-lg overflow-x-auto">
-                <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Meus Lançamentos</h3>
-                <table class="w-full text-left table-auto">
+                <div class="flex justify-end space-x-2">
+                    <button type="submit" id="transaction-submit-btn" class="bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark">Adicionar Lançamento</button>
+                    <button type="button" id="cancel-edit-btn" class="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 hidden">Cancelar Edição</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-center">Resumo Mensal</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+                <div class="p-3 bg-gray-700 rounded-md">
+                    <p class="text-sm text-gray-400">Entradas</p>
+                    <p id="total-entradas" class="text-green-400 text-lg font-bold">R$ 0,00</p>
+                </div>
+                <div class="p-3 bg-gray-700 rounded-md">
+                    <p class="text-sm text-gray-400">Saídas</p>
+                    <p id="total-saidas" class="text-red-400 text-lg font-bold">R$ 0,00</p>
+                </div>
+                <div class="p-3 bg-gray-700 rounded-md">
+                    <p class="text-sm text-gray-400">Média Gasto Diário</p>
+                    <p id="media-gasto-diario" class="text-yellow-400 text-lg font-bold">R$ 0,00</p>
+                </div>
+                <div class="p-3 bg-gray-700 rounded-md">
+                    <p class="text-sm text-gray-400">Saldo do Mês</p>
+                    <p id="saldo-mes" class="text-lg font-bold">R$ 0,00</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4 text-center">Filtros de Lançamentos</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label for="filter-year" class="block text-sm font-medium text-gray-300">Ano</label>
+                    <select id="filter-year" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"></select>
+                </div>
+                <div class="md:col-span-2">
+                    <label for="filter-description" class="block text-sm font-medium text-gray-300">Filtrar por Descrição</label>
+                    <input type="text" id="filter-description" placeholder="Digite uma descrição para filtrar..." class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Meses</label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 months-checkboxes">
+                    </div>
+            </div>
+        </section>
+
+        <section class="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-semibold mb-4 text-center">Todos os Lançamentos</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-700">
                     <thead>
-                        <tr class="bg-primary text-white">
-                            <th class="py-3 px-4 rounded-tl-lg">Data Original</th>
-                            <th class="py-3 px-4">Data Exibição</th>
-                            <th class="py-3 px-4">Descrição</th>
-                            <th class="py-3 px-4">Valor</th>
-                            <th class="py-3 px-4">Categoria</th>
-                            <th class="py-3 px-4">Tipo</th>
-                            <th class="py-3 px-4">Recorrência</th>
-                            <th class="py-3 px-4">Usuário</th>
-                            <th class="py-3 px-4 rounded-tr-lg">Ações</th>
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Data Original</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Data (Parcela)</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Descrição</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Valor</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Categoria</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Tipo</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Recorrente</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Household ID</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Ações</th>
                         </tr>
                     </thead>
-                    <tbody id="transactions-table-body">
-                        </tbody>
+                    <tbody id="transactions-table-body" class="bg-gray-900 divide-y divide-gray-700">
+                        <tr><td colspan="9" class="py-4 text-center">Carregando lançamentos...</td></tr>
+                    </tbody>
                 </table>
             </div>
         </section>
     </main>
 
-    <!-- Rodapé com Filtros e Resumo Mensal (agora scrollable) -->
-    <div class="bg-secondary p-4 md:p-6 shadow-lg mt-8">
-        <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Resumo e Filtros</h3>
-        <div class="flex flex-wrap gap-4 mb-6 items-end">
-            <div class="flex flex-col">
-                <label for="filter-year" class="mb-1 text-sm font-semibold">Ano:</label>
-                <select id="filter-year" class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary"></select>
-            </div>
-            <div class="flex-grow">
-                <label class="mb-1 text-sm font-semibold block">Filtrar por Mês:</label>
-                <div class="months-checkboxes grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2">
-                    </div>
-            </div>
-            <div class="flex flex-col flex-grow">
-                <label for="filter-description" class="mb-1 text-sm font-semibold">Buscar descrição:</label>
-                <input type="text" id="filter-description" placeholder="Ex: Aluguel, Supermercado"
-                       class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-            </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-lg font-semibold">
-            <p>Total de Entradas: <span id="total-entradas" class="text-income">R$ 0.00</span></p>
-            <p>Total de Saídas: <span id="total-saidas" class="text-expense">R$ 0.00</span></p>
-            <p>Média de Gasto Diário: <span id="media-gasto-diario">R$ 0.00</span></p>
-            <p>Saldo do Mês: <span id="saldo-mes" class="balance-value">R$ 0.00</span></p>
-        </div>
-    </div>
-
-
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-    <script src="js/app.js"></script> <!-- Caminho ajustado para a subpasta js -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    
+    <script src="js/app.js"></script>
 </body>
 </html>

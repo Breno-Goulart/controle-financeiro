@@ -3,221 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Controle Financeiro</title>
+    <title>Controle Financeiro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="css/style.css">
-    <style>
-        /* Configuração para o tema escuro do Tailwind */
-        :root {
-            --color-primary: #e94560; /* Botões, títulos */
-            --color-secondary: #0f3460; /* Fundo de cabeçalho/card */
-            --color-bg: #1a1a2e; /* Fundo principal */
-            --color-text: #e0e0e0; /* Cor do texto */
-            --color-border: #0a0e1c; /* Borda/Divisor */
-            --color-income: #28a745;
-            --color-expense: #dc3545;
-            --color-warning: #ffc107;
-        }
-
-        body {
-            background-color: var(--color-bg);
-            color: var(--color-text);
-            font-family: sans-serif;
-        }
-
-        /* Cores customizadas para o Tailwind */
-        .bg-primary { background-color: var(--color-primary); }
-        .hover\:bg-primary-dark:hover { background-color: #c2314d; } /* Exemplo de hover */
-        .text-primary { color: var(--color-primary); }
-        .bg-secondary { background-color: var(--color-secondary); }
-        .border-custom-dark { border-color: var(--color-border); }
-        .bg-dark-bg { background-color: var(--color-bg); }
-        .text-income { color: var(--color-income); }
-        .text-expense { color: var(--color-expense); }
-        .text-warning { color: var(--color-warning); }
-
-        /* Ajustes de estilo para componentes específicos não cobertos pelo Tailwind diretamente */
-        .modal {
-            display: none; /* Controlled by JS */
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 1000;
-        }
-
-        .balance-value.positive { color: var(--color-income); }
-        .balance-value.negative { color: var(--color-expense); }
-
-        /* Esconder seta de números em inputs */
-        input[type="number"]::-webkit-inner-spin-button,
-        input[type="number"]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        input[type="number"] {
-            -moz-appearance: textfield; /* Firefox */
-        }
-        input[type="date"] {
-            color-scheme: dark; /* Ajusta o seletor de data para tema escuro */
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-dark-bg text-gray-200">
-    <header class="bg-secondary p-4 flex justify-between items-center shadow-lg">
-        <h1 class="text-2xl font-bold text-primary">Meu Controle Financeiro</h1>
-        <div id="user-info" class="flex items-center space-x-3">
-            <span id="logged-user-name" class="font-semibold"></span>
-            <button id="logout-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md hidden">Sair</button>
+<body class="bg-gray-100 font-sans">
+    <header class="bg-blue-600 text-white p-4 shadow-md">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Controle Financeiro</h1>
+            <div id="auth-buttons">
+                <button id="google-login-btn" class="bg-white text-blue-600 px-4 py-2 rounded-md hover:bg-gray-100 transition duration-300 flex items-center">
+                    <img src="google_logo.svg" alt="Google Logo" class="w-5 h-5 mr-2">
+                    Login com Google
+                </button>
+                <button id="email-signup-btn" class="bg-white text-blue-600 px-4 py-2 rounded-md hover:bg-gray-100 transition duration-300 ml-2">
+                    Cadastrar
+                </button>
+                <button id="email-login-btn" class="bg-white text-blue-600 px-4 py-2 rounded-md hover:bg-gray-100 transition duration-300 ml-2">
+                    Login
+                </button>
+            </div>
+            <div id="user-info" class="hidden">
+                <span id="user-display" class="mr-4 text-lg"></span>
+                <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition duration-300">
+                    Sair
+                </button>
+            </div>
         </div>
     </header>
 
-    <main class="container mx-auto p-4 md:p-6">
-        <div id="auth-modal" class="modal fixed inset-0 flex items-center justify-center">
-            <div class="bg-secondary p-8 rounded-lg shadow-xl w-11/12 max-w-md text-center">
-                <h2 class="text-2xl font-bold text-primary mb-6">Acessar</h2>
-                <form id="login-form" class="flex flex-col space-y-4">
-                    <input type="email" id="login-email" placeholder="E-mail" required
-                           class="p-3 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <input type="password" id="login-password" placeholder="Senha" required
-                           class="p-3 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <button type="submit" class="bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-md transition duration-200">Login</button>
-                    <button type="button" id="google-login-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-md transition duration-200 flex items-center justify-center space-x-2">
-                        <img src="img/google_logo.svg" alt="Google icon" class="w-5 h-5 flex-shrink-0 align-middle">
-                        <span>Login com Google</span>
-                    </button>
-                    <a href="#" id="forgot-password-link" class="text-sm text-primary hover:underline">Esqueceu a senha?</a>
-                </form>
-                <p class="mt-4 text-sm">Não tem uma conta? <a href="#" id="show-register" class="text-primary hover:underline">Cadastre-se aqui</a></p>
+    <main class="container mx-auto p-4 mt-8 mb-20"> <section id="auth-forms" class="bg-white p-6 rounded-lg shadow-md max-w-md mx-auto hidden">
+            <h2 id="auth-form-title" class="text-2xl font-bold mb-4 text-center"></h2>
+            <input type="email" id="email-input" placeholder="E-mail" class="w-full p-2 mb-4 border border-gray-300 rounded-md">
+            <input type="password" id="password-input" placeholder="Senha" class="w-full p-2 mb-4 border border-gray-300 rounded-md">
+            <button id="submit-auth-btn" class="bg-blue-600 text-white w-full p-2 rounded-md hover:bg-blue-700 transition duration-300">
+                Confirmar
+            </button>
+            <button id="cancel-auth-btn" class="bg-gray-400 text-white w-full p-2 rounded-md mt-2 hover:bg-gray-500 transition duration-300">
+                Cancelar
+            </button>
+        </section>
 
-                <form id="register-form" class="flex flex-col space-y-4 mt-6" style="display: none;">
-                    <h2 class="text-2xl font-bold text-primary mb-4">Cadastro</h2>
-                    <input type="text" id="register-name" placeholder="Seu nome" required
-                           class="p-3 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <input type="email" id="register-email" placeholder="E-mail" required
-                           class="p-3 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <input type="password" id="register-password" placeholder="Senha" required
-                           class="p-3 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary">
-                    <button type="submit" class="bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-md transition duration-200">Cadastrar</button>
-                    <p class="mt-4 text-sm">Já tem uma conta? <a href="#" id="show-login" class="text-primary hover:underline">Fazer Login</a></p>
-                </form>
-            </div>
-        </div>
+        <section id="transaction-section" class="hidden">
+            <h2 class="text-3xl font-bold mb-6 text-center text-blue-700">Minhas Transações</h2>
 
-        <section id="dashboard" class="hidden space-y-6">
-            <div class="bg-secondary p-6 rounded-lg shadow-lg">
-                <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Resumo Mensal</h3>
-                <div class="flex flex-wrap gap-4 mb-6 items-end">
-                    <div class="flex flex-col">
-                        <label for="filter-year" class="mb-1 text-sm font-semibold">Ano:</label>
-                        <select id="filter-year" class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary"></select>
-                    </div>
-                    <div class="flex-grow">
-                        <label class="mb-1 text-sm font-semibold block">Filtrar por Mês:</label>
-                        <div class="months-checkboxes grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2">
-                            </div>
-                    </div>
-                    <div class="flex flex-col flex-grow">
-                        <label for="filter-description" class="mb-1 text-sm font-semibold">Buscar descrição:</label>
-                        <input type="text" id="filter-description" placeholder="Ex: Aluguel, Salário"
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                    </div>
+            <div class="bg-white p-6 rounded-lg shadow-md mb-6 max-w-lg mx-auto">
+                <h3 class="text-xl font-semibold mb-4 text-blue-600">Adicionar Nova Transação</h3>
+                <input type="text" id="transaction-description" placeholder="Descrição" class="w-full p-2 mb-3 border border-gray-300 rounded-md">
+                <input type="number" id="transaction-amount" placeholder="Valor" class="w-full p-2 mb-3 border border-gray-300 rounded-md">
+                <select id="transaction-type" class="w-full p-2 mb-3 border border-gray-300 rounded-md">
+                    <option value="income">Receita</option>
+                    <option value="expense">Despesa</option>
+                </select>
+                <input type="date" id="transaction-date" class="w-full p-2 mb-3 border border-gray-300 rounded-md">
+                <div class="mb-3">
+                    <label for="installments" class="block text-sm font-medium text-gray-700 mb-1">Número de Parcelas:</label>
+                    <select id="installments" class="w-full p-2 border border-gray-300 rounded-md">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                        <option value="10">10</option>
+                        <option value="11">11</option>
+                        <option value="12">12</option>
+                    </select>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-lg font-semibold">
-                    <p>Total de Entradas: <span id="total-entradas" class="text-income">R$ 0.00</span></p>
-                    <p>Total de Saídas: <span id="total-saidas" class="text-expense">R$ 0.00</span></p>
-                    <p>Média de Gasto Diário: <span id="media-gasto-diario">R$ 0.00</span></p>
-                    <p>Saldo do Mês: <span id="saldo-mes" class="balance-value">R$ 0.00</span></p>
-                </div>
+                <button id="add-transaction-btn" class="bg-green-500 text-white w-full p-2 rounded-md hover:bg-green-600 transition duration-300">
+                    Adicionar Transação
+                </button>
             </div>
 
-            <div class="bg-secondary p-6 rounded-lg shadow-lg">
-                <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Novo Lançamento</h3>
-                <form id="transaction-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="flex flex-col">
-                        <label for="transaction-key" class="mb-1 text-sm font-semibold">Chave ID:</label>
-                        <input type="text" id="transaction-key" placeholder="Ex: Casa, Pessoal" required
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                    </div>
-                    <div class="flex flex-col">
-                        <label for="transaction-date" class="mb-1 text-sm font-semibold">Data da Compra:</label>
-                        <input type="date" id="transaction-date" required
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                    </div>
-                    <div class="flex flex-col col-span-1 md:col-span-2">
-                        <label for="transaction-description" class="mb-1 text-sm font-semibold">Descrição:</label>
-                        <input type="text" id="transaction-description" placeholder="Ex: Aluguel, Supermercado" required
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                    </div>
-                    <div class="flex flex-col">
-                        <label for="transaction-value" class="mb-1 text-sm font-semibold">Valor (R$):</label>
-                        <input type="number" id="transaction-value" step="0.01" placeholder="Ex: 1500.00" required
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                    </div>
-                    <div class="flex flex-col">
-                        <label for="transaction-category" class="mb-1 text-sm font-semibold">Categoria:</label>
-                        <select id="transaction-category" required
-                                class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                            <option value="">Selecione uma categoria</option>
-                            <option value="Alimentação">Alimentação</option>
-                            <option value="Transporte">Transporte</option>
-                            <option value="Moradia">Moradia</option>
-                            <option value="Lazer">Lazer</option>
-                            <option value="Educação">Educação</option>
-                            <option value="Saúde">Saúde</option>
-                            <option value="Salário">Salário</option>
-                            <option value="Investimento">Investimento</option>
-                            <option value="Outros">Outros</option>
-                        </select>
-                    </div>
-                    <div class="flex flex-col">
-                        <label for="transaction-type" class="mb-1 text-sm font-semibold">Tipo:</label>
-                        <select id="transaction-type" required
-                                class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                            <option value="saida">Saída</option>
-                            <option value="entrada">Entrada</option>
-                        </select>
-                    </div>
-                    <div class="flex items-center space-x-4 col-span-1 md:col-span-2">
-                        <label for="transaction-current-parcel" class="mb-1 text-sm font-semibold">Parcela Atual:</label>
-                        <input type="number" id="transaction-current-parcel" min="1" value="1"
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary w-20">
-                        <label for="transaction-total-parcels" class="mb-1 text-sm font-semibold">Total de Parcelas:</label>
-                        <input type="number" id="transaction-total-parcels" min="1" value="1"
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary w-20">
-                    </div>
-                    <div class="flex items-center space-x-2 col-span-1 md:col-span-2">
-                        <input type="checkbox" id="transaction-recurring" class="form-checkbox h-5 w-5 text-primary rounded border-gray-700 bg-dark-bg focus:ring-primary">
-                        <label for="transaction-recurring" class="text-sm font-semibold">Cobrança Recorrente</label>
-                    </div>
-                    <button type="submit" class="col-span-1 md:col-span-2 bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-md transition duration-200">Adicionar Lançamento</button>
-                </form>
-            </div>
-
-            <div class="bg-secondary p-6 rounded-lg shadow-lg overflow-x-auto">
-                <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Meus Lançamentos</h3>
-                <table class="w-full text-left table-auto">
-                    <thead>
-                        <tr class="bg-primary text-white">
-                            <th class="py-3 px-4 rounded-tl-lg">Data Original</th>
-                            <th class="py-3 px-4">Data Exibição</th>
-                            <th class="py-3 px-4">Descrição</th>
-                            <th class="py-3 px-4">Valor</th>
-                            <th class="py-3 px-4">Categoria</th>
-                            <th class="py-3 px-4">Tipo</th>
-                            <th class="py-3 px-4">Recorrência</th>
-                            <th class="py-3 px-4">Usuário</th>
-                            <th class="py-3 px-4 rounded-tr-lg">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="transactions-table-body">
-                        </tbody>
-                </table>
+            <div class="bg-white p-6 rounded-lg shadow-md max-w-3xl mx-auto">
+                <h3 class="text-xl font-semibold mb-4 text-blue-600">Minhas Transações</h3>
+                <ul id="transactions-list" class="divide-y divide-gray-200">
+                    </ul>
             </div>
         </section>
     </main>
 
+    <footer class="fixed-footer bg-gray-800 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div id="monthly-summary" class="text-lg font-semibold">
+                </div>
+            <div id="firebase-status" class="text-sm">
+                </div>
+        </div>
+    </footer>
+
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-    <script src="firebase-config.js"></script>
-    <script src="js/app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

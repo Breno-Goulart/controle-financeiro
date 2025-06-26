@@ -5,77 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Controle Financeiro</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="css/style.css"> <!-- Caminho para a subpasta css -->
-    <style>
-        /* Configuração para o tema escuro do Tailwind */
-        :root {
-            --color-primary: #e94560; /* Botões, títulos */
-            --color-secondary: #0f3460; /* Fundo de cabeçalho/card */
-            --color-bg: #1a1a2e; /* Fundo principal */
-            --color-text: #e0e0e0; /* Cor do texto */
-            --color-border: #0a0e1c; /* Borda/Divisor */
-            --color-income: #28a745;
-            --color-expense: #dc3545;
-            --color-warning: #ffc107;
-        }
-
-        body {
-            background-color: var(--color-bg);
-            color: var(--color-text);
-            font-family: sans-serif;
-        }
-
-        /* Cores customizadas para o Tailwind */
-        .bg-primary { background-color: var(--color-primary); }
-        .hover\:bg-primary-dark:hover { background-color: #c2314d; } /* Exemplo de hover */
-        .text-primary { color: var(--color-primary); }
-        .bg-secondary { background-color: var(--color-secondary); }
-        .border-custom-dark { border-color: var(--color-border); }
-        .bg-dark-bg { background-color: var(--color-bg); }
-        .text-income { color: var(--color-income); }
-        .text-expense { color: var(--color-expense); }
-        .text-warning { color: var(--color-warning); }
-
-        /* Ajustes de estilo para componentes específicos não cobertos pelo Tailwind diretamente */
-        .modal {
-            display: none; /* Controlled by JS */
-            background-color: rgba(0, 0, 0, 0.7);
-            z-index: 1000;
-        }
-
-        .balance-value.positive { color: var(--color-income); }
-        .balance-value.negative { color: var(--color-expense); }
-
-        /* Esconder seta de números em inputs */
-        input[type="number"]::-webkit-inner-spin-button,
-        input[type="number"]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        input[type="number"] {
-            -moz-appearance: textfield; /* Firefox */
-        }
-        input[type="date"] {
-            color-scheme: dark; /* Ajusta o seletor de data para tema escuro */
-        }
-        /* Estilos para o rodapé fixo */
-        .footer-fixed {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background-color: var(--color-secondary);
-            padding: 1rem;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
-            z-index: 999;
-            display: flex;
-            justify-content: space-around;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 1rem;
-            border-top: 1px solid var(--color-border);
-        }
-    </style>
+    <link rel="stylesheet" href="css/style.css"> <!-- Caminho ajustado para a subpasta css -->
 </head>
 <body class="bg-dark-bg text-gray-200">
     <header class="bg-secondary p-4 flex justify-between items-center shadow-lg">
@@ -121,34 +51,21 @@
         </div>
 
         <section id="dashboard" class="hidden space-y-6">
-            <div class="bg-secondary p-6 rounded-lg shadow-lg">
-                <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Filtros</h3>
-                <div class="flex flex-wrap gap-4 mb-6 items-end">
-                    <div class="flex flex-col">
-                        <label for="filter-year" class="mb-1 text-sm font-semibold">Ano:</label>
-                        <select id="filter-year" class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary"></select>
-                    </div>
-                    <div class="flex-grow">
-                        <label class="mb-1 text-sm font-semibold block">Filtrar por Mês:</label>
-                        <div class="months-checkboxes grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2">
-                            </div>
-                    </div>
-                    <div class="flex flex-col flex-grow">
-                        <label for="filter-description" class="mb-1 text-sm font-semibold">Buscar descrição:</label>
-                        <input type="text" id="filter-description" placeholder="Ex: Aluguel, Supermercado"
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                    </div>
+            <!-- Novo campo householdId -->
+            <div class="bg-secondary p-6 rounded-lg shadow-lg mb-6">
+                <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Configuração de Família/Grupo</h3>
+                <div class="flex flex-col md:flex-row items-center gap-4">
+                    <label for="household-id-input" class="mb-1 text-sm font-semibold md:mb-0">Chave de Acesso (ID da Família/Grupo):</label>
+                    <input type="text" id="household-id-input" placeholder="Ex: minha_casa_2024"
+                           class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary flex-grow">
+                    <button id="set-household-id-btn" class="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-md transition duration-200">Definir Chave</button>
                 </div>
+                <p id="current-household-display" class="mt-2 text-sm text-gray-400"></p>
             </div>
 
             <div class="bg-secondary p-6 rounded-lg shadow-lg">
                 <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Novo Lançamento</h3>
                 <form id="transaction-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="flex flex-col">
-                        <label for="transaction-key" class="mb-1 text-sm font-semibold">Chave ID:</label>
-                        <input type="text" id="transaction-key" placeholder="Ex: Casa, Pessoal" required
-                               class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                    </div>
                     <div class="flex flex-col">
                         <label for="transaction-date" class="mb-1 text-sm font-semibold">Data da Compra:</label>
                         <input type="date" id="transaction-date" required
@@ -165,6 +82,19 @@
                                class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
                     </div>
                     <div class="flex flex-col">
+                        <label class="mb-1 text-sm font-semibold">Tipo:</label>
+                        <div class="flex space-x-4">
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="transaction-type" value="entrada" class="form-radio h-4 w-4 text-primary" checked>
+                                <span class="ml-2">Entrada</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="transaction-type" value="saida" class="form-radio h-4 w-4 text-primary">
+                                <span class="ml-2">Saída</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="flex flex-col">
                         <label for="transaction-category" class="mb-1 text-sm font-semibold">Categoria:</label>
                         <select id="transaction-category" required
                                 class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
@@ -178,14 +108,6 @@
                             <option value="Salário">Salário</option>
                             <option value="Investimento">Investimento</option>
                             <option value="Outros">Outros</option>
-                        </select>
-                    </div>
-                    <div class="flex flex-col">
-                        <label for="transaction-type" class="mb-1 text-sm font-semibold">Tipo:</label>
-                        <select id="transaction-type" required
-                                class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
-                            <option value="saida">Saída</option>
-                            <option value="entrada">Entrada</option>
                         </select>
                     </div>
                     <div class="flex items-center space-x-4 col-span-1 md:col-span-2">
@@ -216,7 +138,7 @@
                 </form>
             </div>
 
-            <div class="bg-secondary p-6 rounded-lg shadow-lg overflow-x-auto mb-20"> <!-- Margem inferior para o rodapé -->
+            <div class="bg-secondary p-6 rounded-lg shadow-lg overflow-x-auto">
                 <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Meus Lançamentos</h3>
                 <table class="w-full text-left table-auto">
                     <thead>
@@ -239,20 +161,37 @@
         </section>
     </main>
 
-    <!-- Rodapé Fixo com Resumo Mensal -->
-    <footer class="footer-fixed">
-        <h3 class="text-xl font-bold text-primary mr-4 hidden md:block">Resumo Mensal:</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-lg font-semibold text-center md:text-left flex-grow">
+    <!-- Rodapé com Filtros e Resumo Mensal (agora scrollable) -->
+    <div class="bg-secondary p-4 md:p-6 shadow-lg mt-8">
+        <h3 class="text-xl font-bold text-primary mb-4 border-b border-gray-700 pb-2">Resumo e Filtros</h3>
+        <div class="flex flex-wrap gap-4 mb-6 items-end">
+            <div class="flex flex-col">
+                <label for="filter-year" class="mb-1 text-sm font-semibold">Ano:</label>
+                <select id="filter-year" class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary"></select>
+            </div>
+            <div class="flex-grow">
+                <label class="mb-1 text-sm font-semibold block">Filtrar por Mês:</label>
+                <div class="months-checkboxes grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2">
+                    </div>
+            </div>
+            <div class="flex flex-col flex-grow">
+                <label for="filter-description" class="mb-1 text-sm font-semibold">Buscar descrição:</label>
+                <input type="text" id="filter-description" placeholder="Ex: Aluguel, Supermercado"
+                       class="p-2 rounded-md bg-dark-bg border border-gray-700 focus:outline-none focus:ring-primary">
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-lg font-semibold">
             <p>Total de Entradas: <span id="total-entradas" class="text-income">R$ 0.00</span></p>
             <p>Total de Saídas: <span id="total-saidas" class="text-expense">R$ 0.00</span></p>
             <p>Média de Gasto Diário: <span id="media-gasto-diario">R$ 0.00</span></p>
             <p>Saldo do Mês: <span id="saldo-mes" class="balance-value">R$ 0.00</span></p>
         </div>
-    </footer>
+    </div>
+
 
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-    <script src="js/app.js"></script> <!-- Caminho para a subpasta js -->
+    <script src="js/app.js"></script> <!-- Caminho ajustado para a subpasta js -->
 </body>
 </html>

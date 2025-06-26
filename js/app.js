@@ -47,8 +47,8 @@ const transactionDescriptionInput = document.getElementById('transaction-descrip
 const transactionDateInput = document.getElementById('transaction-date');
 const transactionCurrentParcelInput = document.getElementById('transaction-current-parcel');
 const transactionTotalParcelsSelect = document.getElementById('transaction-total-parcels');
-const transactionSubmitButton = document.getElementById('transaction-submit-btn'); // Novo: botão de submit do form
-const cancelEditButton = document.getElementById('cancel-edit-btn'); // Novo: botão de cancelar edição
+const transactionSubmitButton = document.getElementById('transaction-submit-btn');
+const cancelEditButton = document.getElementById('cancel-edit-btn');
 
 const transactionsTableBody = document.getElementById('transactions-table-body');
 
@@ -257,7 +257,7 @@ const handleTransactionSubmit = async (e) => {
     };
 
     try {
-        // AJUSTE CRÍTICO AQUI: Caminho COMPLETO da coleção no Firebase
+        // Caminho COMPLETO da coleção no Firebase (ajustado conforme seus prints)
         const transactionCollectionRef = db.collection('artifacts')
                                            .doc('controle-financeiro-c1a0b')
                                            .collection('public')
@@ -316,7 +316,7 @@ const loadTransactions = () => {
 
     if (!currentUser) {
         console.warn('Usuário não logado. Não é possível carregar lançamentos.');
-        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Faça login para ver os lançamentos.</td></td>';
+        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Faça login para ver os lançamentos.</td></tr>';
         clearMonthlySummary();
         return;
     }
@@ -330,7 +330,7 @@ const loadTransactions = () => {
 
     console.log(`Tentando carregar lançamentos do caminho: artifacts/controle-financeiro-c1a0b/public/data/lancamentos com householdId: "${currentHouseholdId}"`);
 
-    // AJUSTE CRÍTICO AQUI: Caminho COMPLETO da coleção no Firebase
+    // Caminho COMPLETO da coleção no Firebase (ajustado conforme seus prints)
     let query = db.collection('artifacts')
                   .doc('controle-financeiro-c1a0b')
                   .collection('public')
@@ -408,15 +408,15 @@ const displayTransactions = (transactions) => {
         const householdIdDisplay = transaction.householdId || 'N/A'; // Exibe a householdId se existir
 
         row.innerHTML = `
-            <td class="py-2 px-4">${originalDate}</td>
-            <td class="py-2 px-4">${displayDate} (${parcelText})</td>
-            <td class="py-2 px-4">${transaction.description}</td>
-            <td class="py-2 px-4 ${valueClass}">${formattedValue}</td>
-            <td class="py-2 px-4">${transaction.category}</td>
-            <td class="py-2 px-4">${transaction.type === 'entrada' ? 'Entrada' : 'Saída'}</td>
-            <td class="py-2 px-4">${recurrenceText}</td>
-            <td class="py-2 px-4">${householdIdDisplay}</td>
-            <td class="py-2 px-4">
+            <td class="px-4 py-2">${originalDate}</td>
+            <td class="px-4 py-2">${displayDate} (${parcelText})</td>
+            <td class="px-4 py-2">${transaction.description}</td>
+            <td class="px-4 py-2 ${valueClass}">${formattedValue}</td>
+            <td class="px-4 py-2">${transaction.category}</td>
+            <td class="px-4 py-2">${transaction.type === 'entrada' ? 'Entrada' : 'Saída'}</td>
+            <td class="px-4 py-2">${recurrenceText}</td>
+            <td class="px-4 py-2">${householdIdDisplay}</td>
+            <td class="px-4 py-2">
                 <button class="bg-blue-600 hover:bg-blue-700 text-white text-sm py-1 px-2 rounded-md edit-btn" data-id="${transaction.id}">Editar</button>
                 <button class="bg-red-600 hover:bg-red-700 text-white text-sm py-1 px-2 rounded-md delete-btn" data-id="${transaction.id}">Excluir</button>
             </td>
@@ -434,7 +434,7 @@ const editTransaction = async (id) => {
     }
 
     try {
-        // AJUSTE CRÍTICO AQUI: Caminho COMPLETO do documento no Firebase
+        // Caminho COMPLETO do documento no Firebase
         const docRef = db.collection('artifacts')
                          .doc('controle-financeiro-c1a0b')
                          .collection('public')
@@ -501,7 +501,7 @@ const deleteTransaction = async (id) => {
     }
 
     try {
-        // AJUSTE CRÍTICO AQUI: Caminho COMPLETO do documento no Firebase
+        // Caminho COMPLETO do documento no Firebase
         const docRef = db.collection('artifacts')
                          .doc('controle-financeiro-c1a0b')
                          .collection('public')

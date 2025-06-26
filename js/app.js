@@ -40,32 +40,40 @@ const forgotPasswordLink = document.getElementById('forgot-password-link');
 
 const transactionForm = document.getElementById('transaction-form');
 const transactionValueInput = document.getElementById('transaction-value');
-const transactionTypeSelect = document.getElementById('transaction-type');
+// Alterado: Tipos de transação (Entrada/Saída) agora são radio buttons
+const transactionTypeRadios = document.querySelectorAll('input[name="transaction-type"]');
 const transactionCategorySelect = document.getElementById('transaction-category');
 const transactionRecurringCheckbox = document.getElementById('transaction-recurring');
 const transactionDescriptionInput = document.getElementById('transaction-description');
 const transactionDateInput = document.getElementById('transaction-date');
-const transactionKeyInput = document.getElementById('transaction-key');
+// Removida transactionKeyInput, pois a "chave ID" será householdId
+// const transactionKeyInput = document.getElementById('transaction-key'); 
 const transactionCurrentParcelInput = document.getElementById('transaction-current-parcel');
 const transactionTotalParcelsSelect = document.getElementById('transaction-total-parcels'); // Seletor de parcelas
 
 const transactionsTableBody = document.getElementById('transactions-table-body');
 
-// Elementos do resumo mensal (agora no rodapé)
+// Elementos do resumo mensal (agora movidos para o final do main/body)
 const totalEntradasSpan = document.getElementById('total-entradas');
 const totalSaidasSpan = document.getElementById('total-saidas');
 const mediaGastoDiarioSpan = document.getElementById('media-gasto-diario');
 const saldoMesSpan = document.getElementById('saldo-mes');
 
-// Filtros
+// Filtros (agora movidos para o final do main/body)
 const filterYearSelect = document.getElementById('filter-year');
 const filterDescriptionInput = document.getElementById('filter-description');
 const monthsCheckboxesDiv = document.querySelector('.months-checkboxes');
 
+// Novos elementos para householdId
+const householdIdInput = document.getElementById('household-id-input');
+const setHouseholdIdBtn = document.getElementById('set-household-id-btn');
+const currentHouseholdDisplay = document.getElementById('current-household-display');
+
 let currentUserId = null;
 let currentUserName = null;
+let currentHouseholdId = localStorage.getItem('householdId') || ''; // Carrega do localStorage
 
-// Funções de Autenticação
+// --- Funções de Autenticação ---
 const updateUIForAuthStatus = (user) => {
     if (user) {
         currentUserId = user.uid;
@@ -74,7 +82,12 @@ const updateUIForAuthStatus = (user) => {
         logoutButton.classList.remove('hidden');
         dashboardSection.classList.remove('hidden');
         authModal.style.display = 'none';
-        loadTransactions();
+
+        // Exibe e preenche o campo householdId
+        householdIdInput.value = currentHouseholdId;
+        updateHouseholdDisplay();
+
+        loadTransactions(); // Carrega transações do usuário/household logado
         populateFilterYears();
         renderMonthCheckboxes();
         updateMonthlySummary(); // Atualiza o resumo ao logar
@@ -87,6 +100,9 @@ const updateUIForAuthStatus = (user) => {
         authModal.style.display = 'flex';
         transactionsTableBody.innerHTML = ''; // Limpa a tabela
         clearMonthlySummary(); // Limpa o resumo ao deslogar
+        currentHouseholdId = ''; // Limpa householdId ao deslogar
+        localStorage.removeItem('householdId'); // Remove do localStorage
+        updateHouseholdDisplay();
     }
 };
 
@@ -171,97 +187,120 @@ showRegisterLink.addEventListener('click', (e) => { e.preventDefault(); showRegi
 showLoginLink.addEventListener('click', (e) => { e.preventDefault(); showLoginForm(); });
 forgotPasswordLink.addEventListener('click', handleForgotPassword);
 
-// Funções de Transações
-const addTransaction = async (e) => {
+// --- Funções para Household ID ---
+setHouseholdIdBtn.addEventListener('click', () => {
+    const newHouseholdId = householdIdInput.value.trim();
+    if (newHouseholdId) {
+        currentHouseholdId = newHouseholdId;
+        localStorage.setItem('householdId', newHouseholdId); // Salva no localStorage
+        updateHouseholdDisplay();
+        loadTransactions(); // Recarrega transações com o novo householdId
+        alert(`Chave de Acesso definida para: ${newHouseholdId}`);
+    } else {
+        alert('Por favor, insira uma Chave de Acesso válida.');
+    }
+});
+
+function updateHouseholdDisplay() {
+    if (currentHouseholdId) {
+        currentHouseholdDisplay.textContent = `Chave de Acesso atual: ${currentHouseholdId}`;
+    } else {
+        currentHouseholdDisplay.textContent = 'Nenhuma Chave de Acesso definida. Os lançamentos não serão compartilhados.';
+    }
+}
+
+// --- Funções de Transação ---
+
+// Adicionar transação
+transactionForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    if (!currentUserId) {
+    if (!currentUser) {
         alert('Você precisa estar logado para adicionar lançamentos.');
         return;
     }
 
-    const key = transactionKeyInput.value.trim();
+    if (!currentHouseholdId) {
+        alert('Por favor, defina uma Chave de Acesso (ID da Família/Grupo) para adicionar lançamentos.');
+        return;
+    }
+
     const date = transactionDateInput.value;
     const description = transactionDescriptionInput.value.trim();
     const value = parseFloat(transactionValueInput.value);
+    // Pega o valor do radio button selecionado
+    const type = document.querySelector('input[name="transaction-type"]:checked').value;
     const category = transactionCategorySelect.value;
-    const type = transactionTypeSelect.value;
     const isRecurring = transactionRecurringCheckbox.checked;
-    let currentParcel = parseInt(transactionCurrentParcelInput.value);
-    const totalParcels = parseInt(transactionTotalParcelsSelect.value); // Pega do seletor
+    const totalParcels = parseInt(transactionTotalParcelsSelect.value);
 
-    if (!key || !date || !description || isNaN(value) || value <= 0 || !category || !type) {
-        alert('Por favor, preencha todos os campos corretamente.');
+    if (!date || !description || isNaN(value) || value <= 0 || !category || !type) {
+        alert('Por favor, preencha todos os campos obrigatórios: Data, Descrição, Valor, Tipo e Categoria.');
         return;
     }
 
     const transactionData = {
-        key: key,
         date: firebase.firestore.Timestamp.fromDate(new Date(date)),
         description: description,
         value: value,
         category: category,
         type: type,
         isRecurring: isRecurring,
-        userId: currentUserId,
+        userId: currentUser.uid, // O ID do usuário que fez o lançamento
         userName: currentUserName,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
 
     try {
+        const transactionRef = db.collection('households').doc(currentHouseholdId).collection('transactions');
+
         if (totalParcels > 1) {
             for (let i = 1; i <= totalParcels; i++) {
                 const parcelDate = new Date(date);
                 parcelDate.setMonth(parcelDate.getMonth() + (i - 1)); // Avança o mês para cada parcela
 
-                await db.collection('transactions').add({
+                await transactionRef.add({
                     ...transactionData,
                     date: firebase.firestore.Timestamp.fromDate(parcelDate),
                     parcel: i,
                     totalParcels: totalParcels,
-                    originalDate: firebase.firestore.Timestamp.fromDate(new Date(date)), // Salva a data original
+                    originalDate: firebase.firestore.Timestamp.fromDate(new Date(date)),
                 });
             }
-            alert(`Lançamento parcelado (${totalParcels}x) adicionado com sucesso!`);
+            alert(`Lançamento parcelado (${totalParcels}x) adicionado com sucesso na chave "${currentHouseholdId}"!`);
         } else {
-            await db.collection('transactions').add({
+            await transactionRef.add({
                 ...transactionData,
-                parcel: 1, // Assume 1/1 para não parcelado
+                parcel: 1,
                 totalParcels: 1,
                 originalDate: firebase.firestore.Timestamp.fromDate(new Date(date)),
             });
-            alert('Lançamento adicionado com sucesso!');
+            alert(`Lançamento adicionado com sucesso na chave "${currentHouseholdId}"!`);
         }
         transactionForm.reset();
-        transactionCurrentParcelInput.value = 1; // Reseta para 1
-        transactionTotalParcelsSelect.value = 1; // Reseta para 1
+        transactionTotalParcelsSelect.value = 1; // Reseta o seletor de parcelas
     } catch (error) {
-        alert(`Erro ao adicionar lançamento: ${error.message}`);
-        console.error("Erro ao adicionar lançamento:", error);
+        console.error("Erro ao adicionar transação:", error);
+        alert(`Erro ao adicionar transação: ${error.message}`);
     }
-};
+});
 
+
+// Carregar transações
 const loadTransactions = () => {
-    if (!currentUserId) return;
+    if (!currentUserId || !currentHouseholdId) {
+        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Faça login e defina uma Chave de Acesso para ver os lançamentos.</td></tr>';
+        clearMonthlySummary();
+        return;
+    }
 
-    let query = db.collection('transactions').where('userId', '==', currentUserId);
+    let query = db.collection('households').doc(currentHouseholdId).collection('transactions');
 
     const selectedYear = filterYearSelect.value;
     const selectedMonths = Array.from(monthsCheckboxesDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
     const searchDescription = filterDescriptionInput.value.toLowerCase().trim();
 
-    if (selectedYear && selectedYear !== 'all') {
-        const startOfYear = new Date(parseInt(selectedYear), 0, 1);
-        const endOfYear = new Date(parseInt(selectedYear) + 1, 0, 1);
-        query = query.where('date', '>=', startOfYear).where('date', '<', endOfYear);
-    }
-
-    if (selectedMonths.length > 0) {
-        // Para múltiplos meses, precisamos buscar tudo no ano e filtrar no cliente
-        // ou fazer várias consultas (que é mais complexo com Firestore).
-        // Por simplicidade e eficiência em pequenas coleções, filtramos após buscar.
-    }
-
+    // Filtros no lado do cliente (para meses, pois o Firestore tem limitações de query OR em múltiplos campos)
     query.orderBy('date', 'desc').onSnapshot(snapshot => {
         let transactions = [];
         snapshot.forEach(doc => {
@@ -270,29 +309,31 @@ const loadTransactions = () => {
             transactions.push(data);
         });
 
-        // Filtragem por mês e descrição (se necessário)
+        // Filtragem no cliente por ano, mês e descrição
         let filteredTransactions = transactions.filter(t => {
             const transactionDate = t.date.toDate();
             const transactionYear = transactionDate.getFullYear().toString();
-            const transactionMonth = transactionDate.getMonth() + 1; // Mês é base 0
+            const transactionMonth = transactionDate.getMonth() + 1;
 
             const matchesYear = (selectedYear === 'all' || transactionYear === selectedYear);
+            const matchesMonth = selectedMonths.length === 0 || selectedMonths.includes(transactionMonth);
             const matchesDescription = searchDescription === '' || t.description.toLowerCase().includes(searchDescription);
 
-            return matchesMonth && matchesDescription;
+            return matchesYear && matchesMonth && matchesDescription;
         });
 
         displayTransactions(filteredTransactions);
         updateMonthlySummary(filteredTransactions);
     }, error => {
         console.error("Erro ao carregar lançamentos:", error);
+        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center text-red-500">Erro ao carregar lançamentos. Verifique sua conexão ou Chave de Acesso.</td></tr>';
     });
 };
 
 const displayTransactions = (transactions) => {
     transactionsTableBody.innerHTML = '';
     if (transactions.length === 0) {
-        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Nenhum lançamento encontrado.</td></tr>';
+        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Nenhum lançamento encontrado para esta Chave de Acesso.</td></tr>';
         return;
     }
 
@@ -326,16 +367,19 @@ const displayTransactions = (transactions) => {
 };
 
 const editTransaction = async (id) => {
-    // Implementar lógica de edição aqui (ex: abrir modal de edição)
     alert(`Funcionalidade de edição para ${id} será implementada.`);
 };
 
 const deleteTransaction = async (id) => {
+    if (!currentHouseholdId) {
+        alert('Nenhuma Chave de Acesso definida. Não é possível excluir lançamentos.');
+        return;
+    }
     if (!confirm('Tem certeza que deseja excluir este lançamento?')) {
         return;
     }
     try {
-        await db.collection('transactions').doc(id).delete();
+        await db.collection('households').doc(currentHouseholdId).collection('transactions').doc(id).delete();
         alert('Lançamento excluído com sucesso!');
     } catch (error) {
         alert(`Erro ao excluir lançamento: ${error.message}`);
@@ -362,19 +406,25 @@ const updateMonthlySummary = (transactions = []) => {
 
     let totalEntradas = 0;
     let totalSaidas = 0;
-    let daysInMonth = 0;
+    let daysInPeriod = 0; // Calcularemos os dias do período filtrado
 
-    if (selectedMonths.length === 1 && selectedYear && selectedYear !== 'all') {
-        const month = selectedMonths[0];
-        daysInMonth = new Date(parseInt(selectedYear), month, 0).getDate();
-    } else if (selectedMonths.length === 0 && selectedYear && selectedYear !== 'all') {
-        // Se nenhum mês selecionado, mas ano sim, considera todos os dias do ano
-        daysInMonth = (new Date(parseInt(selectedYear) + 1, 0, 1) - new Date(parseInt(selectedYear), 0, 1)) / (1000 * 60 * 60 * 24);
-    } else {
-        // Caso de "todos os anos" ou múltiplos meses, média diária é mais complexa, pode ser 0 ou N/A
-        daysInMonth = 0; // Ou calcular a diferença de dias entre a primeira e a última transação
+    if (selectedYear && selectedYear !== 'all') {
+        let startDate, endDate;
+        if (selectedMonths.length === 1) { // Mês único selecionado
+            const month = selectedMonths[0];
+            startDate = new Date(parseInt(selectedYear), month - 1, 1);
+            endDate = new Date(parseInt(selectedYear), month, 0); // Último dia do mês
+        } else if (selectedMonths.length > 1) { // Múltiplos meses selecionados (período não contíguo)
+            // Para média diária em múltiplos meses não contíguos, seria mais complexo.
+            // Por simplicidade, vamos calcular dias apenas se for um mês único ou ano inteiro.
+            startDate = new Date(parseInt(selectedYear), Math.min(...selectedMonths) - 1, 1);
+            endDate = new Date(parseInt(selectedYear), Math.max(...selectedMonths), 0);
+        } else { // Ano inteiro
+            startDate = new Date(parseInt(selectedYear), 0, 1);
+            endDate = new Date(parseInt(selectedYear), 11, 31);
+        }
+        daysInPeriod = Math.ceil((endDate - startDate + 1) / (1000 * 60 * 60 * 24)); // Dias de diferença + 1
     }
-
 
     transactionsForSummary.forEach(transaction => {
         if (transaction.type === 'entrada') {
@@ -385,7 +435,7 @@ const updateMonthlySummary = (transactions = []) => {
     });
 
     const saldoMes = totalEntradas - totalSaidas;
-    const mediaGastoDiario = daysInMonth > 0 ? (totalSaidas / daysInMonth) : 0;
+    const mediaGastoDiario = daysInPeriod > 0 ? (totalSaidas / daysInPeriod) : 0;
 
     totalEntradasSpan.textContent = totalEntradas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     totalSaidasSpan.textContent = totalSaidas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -454,6 +504,13 @@ filterDescriptionInput.addEventListener('input', loadTransactions);
 monthsCheckboxesDiv.addEventListener('change', loadTransactions);
 transactionForm.addEventListener('submit', addTransaction);
 
-// Inicialização (será chamado por updateUIForAuthStatus se houver login)
-// populateFilterYears();
-// renderMonthCheckboxes();
+// Define a data atual como padrão para o input de data
+document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = (today.getMonth() + 1).toString().padStart(2, '0');
+    const day = today.getDate().toString().padStart(2, '0');
+    transactionDateInput.value = `${year}-${month}-${day}`;
+
+    updateHouseholdDisplay(); // Atualiza display da chave ao carregar
+});

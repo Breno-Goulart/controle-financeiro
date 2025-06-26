@@ -28,15 +28,16 @@ import {
     writeBatch // Adicionado para operações em lote (batch)
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-// Variáveis globais do ambiente Canvas (já fornecidas pelo ambiente).
-// Usar 'default-app-id' e '{}' como fallbacks caso as variáveis não estejam definidas (o que acontece localmente).
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : {
-    // Suas credenciais Firebase para desenvolvimento local
+// Variáveis de configuração do Firebase
+// Para desenvolvimento local, use as suas credenciais diretamente.
+// Se estiver em um ambiente que injeta __app_id ou __firebase_config,
+// você pode manter a lógica anterior, mas para evitar ReferenceError localmente,
+// é mais seguro usar a config diretamente.
+const firebaseConfig = {
     apiKey: "AIzaSyD998NH9Vco8Yfk-7n3XgMjLW-LkQkAgLA",
     authDomain: "controle-financeiro-c1a0b.firebaseapp.com",
     projectId: "controle-financeiro-c1a0b",
-    storageBucket: "controle-financeiro-c1a0b.firebasestorage.app",
+    storageBucket: "controle-financeiro-c1a0b.firebaseapp.com", // Corrigido .firebase-storage.app para .firebaseapp.com (comum)
     messagingSenderId: "471645962387",
     appId: "1:471645962387:web:fd500fdeb62475596c0d66"
 };
@@ -45,6 +46,8 @@ const firebaseConfig = typeof __firebase_config !== 'undefined' ? __firebase_con
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// ... (Restante do seu código permanece o mesmo) ...
 
 // REFERÊNCIAS DO DOM
 const userIdDisplay = document.getElementById('user-id-display');
@@ -483,12 +486,6 @@ async function handleJoinHousehold() {
         householdIdValue.textContent = currentHouseholdId;
         showMessage(`Conectado ao novo grupo: ${currentHouseholdId}!`, 2000);
 
-        // Opcional: Se desejar migrar dados antigos para o novo householdId,
-        // isso exigiria uma operação de lote mais complexa aqui.
-        // Por enquanto, apenas os novos lançamentos usarão o novo ID e os antigos ficarão com o antigo.
-        // Se a intenção é que todos os dados do usuário passem a pertencer ao novo grupo,
-        // uma migração seria necessária. Para simplicidade, vamos apenas carregar os dados
-        // associados ao novo currentHouseholdId após a mudança.
         loadGastos();
 
     } catch (error) {
@@ -600,14 +597,8 @@ function populateMonthSelects() {
         const option = document.createElement('option');
         option.value = index + 1;
         option.textContent = name;
+        filterMonthSelect.appendChild(option); // Adicionado para garantir que o filtro de mês seja populado
     });
-    // Add months options again for the filter select, ensuring it doesn't get overwritten
-    for (let i = 0; i < months.length; i++) {
-        const option = document.createElement('option');
-        option.value = i + 1;
-        option.textContent = months[i];
-        filterMonthSelect.appendChild(option);
-    }
     filterMonthSelect.value = currentMonth; // Seleciona o mês atual por padrão
 }
 
@@ -756,5 +747,4 @@ function initializeUI() {
 
 // Chame initializeUI() uma vez no final para garantir que os elementos DOM estejam disponíveis.
 // No entanto, onAuthStateChanged é o principal driver de atualização.
-// initializeUI(); // Removido, pois onAuthStateChanged já cuida da inicialização.
-// A lógica dentro do DOMContentLoaded é suficiente para garantir que os elementos existam.
+initializeUI(); // Mantenha esta chamada para garantir que a UI seja inicializada.

@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Controle Financeiro Pessoal</title>
+    <!-- Link para a fonte Inter do Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Link para o Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Estilos personalizados para cores de texto */
@@ -31,321 +33,389 @@
         input[type=number] {
             -moz-appearance: textfield;
         }
-
-        .loader {
-            border-top-color: #3498db;
-            -webkit-animation: spin 1s linear infinite;
-            animation: spin 1s linear infinite;
+        /* Estilo para o body para usar a fonte Inter e centralizar o conteúdo */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Gradiente de fundo suave para mais cor */
+            background-image: linear-gradient(to bottom right, #e0f2fe, #eef2ff); /* Um azul claro para um lilás muito claro */
+            display: flex;
+            justify-content: center;
+            align-items: center; /* Centraliza verticalmente o conteúdo */
+            min-height: 100vh;
+            padding: 20px; /* Adiciona padding ao body para não colar nas bordas em telas pequenas */
         }
 
-        @-webkit-keyframes spin {
-            0% { -webkit-transform: rotate(0deg); }
-            100% { -webkit-transform: rotate(360deg); }
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Cores dos botões personalizados (Tailwind-like) */
-        .confirm-btn-primary {
-            @apply bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200;
-        }
-        .cancel-btn {
-            @apply bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-200;
-        }
-
-        /* Estilos do Modal */
-        .modal {
-            display: none; /* Hidden by default */
-            position: fixed; /* Stay in place */
-            z-index: 1000; /* Sit on top */
-            left: 0;
+        /* Estilos para os modais personalizados */
+        .message-box-overlay, .confirm-box-overlay, .stop-recurring-modal-overlay, .edit-recurring-choice-modal-overlay {
+            position: fixed;
             top: 0;
-            width: 100%; /* Full width */
-            height: 100%; /* Full height */
-            overflow: auto; /* Enable scroll if needed */
-            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-            display: flex; /* Use flexbox for centering */
-            justify-content: center; /* Center horizontally */
-            align-items: center; /* Center vertically */
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
 
-        .modal-content {
-            background-color: #fefefe;
-            margin: auto; /* Center modal */
-            padding: 2rem;
-            border-radius: 0.75rem; /* rounded-lg */
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
-            max-width: 500px; /* max-w-lg */
-            width: 90%; /* Responsive width */
+        .message-box-content, .confirm-box-content, .stop-recurring-modal-content, .edit-recurring-choice-modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             text-align: center;
+            max-width: 400px;
+            width: 90%;
+            transform: translateY(-20px);
+            animation: slideIn 0.3s forwards;
             position: relative;
         }
 
-        .close-button {
-            position: absolute;
-            top: 0.75rem; /* pt-3 */
-            right: 0.75rem; /* pr-3 */
-            color: #aaa;
-            font-size: 1.5rem; /* text-2xl */
+        @keyframes slideIn {
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .message-box-content h3, .confirm-box-content h3, .stop-recurring-modal-content h3, .edit-recurring-choice-modal-content h3 {
+            font-size: 1.8em;
             font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close-button:hover,
-        .close-button:focus {
+            margin-bottom: 15px;
             color: #333;
-            text-decoration: none;
-            cursor: pointer;
         }
 
+        .message-box-content p, .confirm-box-content p, .stop-recurring-modal-content p, .edit-recurring-choice-modal-content p {
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 25px;
+        }
+
+        .message-box-content button, .confirm-box-buttons button, .stop-recurring-modal-content button, .edit-recurring-choice-modal-content button {
+            padding: 10px 25px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .message-box-content button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+        }
+        .message-box-content button:hover {
+            background-color: #0056b3;
+        }
+
+        .confirm-box-buttons, .stop-recurring-modal-buttons, .edit-recurring-choice-modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .confirm-box-buttons .confirm-yes, .stop-recurring-modal-buttons .confirm-btn-primary, .edit-recurring-choice-modal-buttons .confirm-btn-primary {
+            background-color: #28a745;
+            color: white;
+            border: none;
+        }
+        .confirm-box-buttons .confirm-yes:hover, .stop-recurring-modal-buttons .confirm-btn-primary:hover, .edit-recurring-choice-modal-buttons .confirm-btn-primary:hover {
+            background-color: #218838;
+        }
+
+        .confirm-box-buttons .confirm-no, .stop-recurring-modal-buttons .cancel-btn, .edit-recurring-choice-modal-buttons .cancel-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+        }
+        .confirm-box-buttons .confirm-no:hover, .stop-recurring-modal-buttons .cancel-btn:hover, .edit-recurring-choice-modal-buttons .cancel-btn:hover {
+            background-color: #c82333;
+        }
+
+        /* Classes de utilidade para mostrar/esconder */
         .hidden {
             display: none !important;
         }
     </style>
 </head>
-<body class="bg-gray-100 font-sans text-gray-800">
-    <div id="main-app-container" class="container mx-auto p-4 md:p-6 lg:p-8 bg-white shadow-xl rounded-lg mt-8 mb-8 relative">
-        <header class="flex flex-col md:flex-row justify-between items-center mb-6 border-b pb-4">
-            <h1 class="text-3xl font-extrabold text-indigo-700 mb-4 md:mb-0">Meu Controle Financeiro Pessoal</h1>
-            <div class="flex flex-col md:flex-row items-center gap-4">
-                <p id="user-id-display" class="text-sm text-gray-600">ID de Usuário: Carregando...</p>
-                <p id="auth-status-display" class="text-sm text-gray-600">Status: Carregando...</p>
-                <button id="openAuthModalBtn" class="confirm-btn-primary flex-shrink-0">
-                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
-                    Login / Registo
-                </button>
-                <button id="logoutBtn" class="cancel-btn flex-shrink-0 hidden">
-                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    Sair
-                </button>
+<body>
+    <div class="container mx-auto bg-white p-8 rounded-3xl shadow-2xl max-w-5xl w-full my-8 md:my-12 border-4 border-blue-300 transform hover:scale-[1.005] transition-transform duration-300 ease-in-out">
+        <h1 class="text-3xl md:text-4xl font-extrabold mb-6 text-center text-gray-800 tracking-tight">📊 Meu Controle Financeiro Pessoal</h1>
+        <p id="user-id-display" class="text-sm md:text-base font-semibold text-gray-600 text-center mb-6 font-mono bg-blue-50 p-3 rounded-lg border border-blue-200 shadow-sm">ID do Usuário: Carregando...</p>
+        
+        <!-- Seção para configurar o ID da Família/Casa - Agora sem o parágrafo duplicado -->
+        <div class="mb-8 p-6 bg-yellow-50 rounded-xl border border-yellow-200 shadow-md">
+            <h2 class="text-xl md:text-2xl font-bold mb-4 text-yellow-800">Gerenciar ID da Família/Casa</h2>
+            <div class="flex flex-col md:flex-row gap-4">
+                <input type="text" id="joinHouseholdIdInput" placeholder="ID da Família/Casa atual" class="flex-grow p-2.5 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 shadow-sm transition-colors duration-200">
+                <button id="setHouseholdIdBtn" class="bg-yellow-600 text-white p-2.5 rounded-lg hover:bg-yellow-700 transition-colors duration-300 shadow-md flex-shrink-0">Definir ID</button>
             </div>
-        </header>
+            <p class="text-sm text-gray-600 mt-2">Use este ID para compartilhar lançamentos com outros membros da família ou para organizar diferentes grupos. O ID acima é o ID ativo.</p>
+        </div>
 
-        <section class="manage-family-id-section bg-gray-50 p-6 rounded-lg shadow-sm mb-8">
-            <h2 class="text-2xl font-bold text-gray-700 mb-4">Gerenciar ID da Família/Grupo</h2>
-            <p class="text-gray-600 mb-4">Se você já pertence a um grupo, insira o ID aqui para compartilhar lançamentos. Caso contrário, seu ID atual se tornará o ID do novo grupo.</p>
-            <div class="flex flex-col md:flex-row gap-4 mb-4">
-                <input type="text" id="joinHouseholdIdInput" placeholder="Ex: meu-grupo-financeiro" class="flex-grow shadow-sm appearance-none border rounded-lg py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200">
-                <button id="joinHouseholdBtn" class="confirm-btn-primary flex-shrink-0">
-                    <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Aderir / Criar Grupo
-                </button>
-            </div>
-            <p id="currentHouseholdDisplay" class="text-gray-500 text-sm">ID do Grupo Atual: <span id="householdIdValue" class="font-semibold text-indigo-600">Carregando...</span></p>
-        </section>
-
-        <section class="add-new-entry-section bg-blue-50 p-6 rounded-lg shadow-sm mb-8">
-            <h2 class="text-2xl font-bold text-indigo-700 mb-4">Adicionar Novo Lançamento</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                <div class="form-group">
-                    <label for="date" class="block text-gray-700 text-sm font-bold mb-2">Dia</label>
-                    <input type="date" id="date" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200">
+        <!-- Formulário para adicionar novos lançamentos (gasto/entrada) -->
+        <div class="mb-8 p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-lg transform hover:scale-[1.005] transition-transform duration-200 ease-out">
+            <h2 class="text-2xl md:text-3xl font-bold mb-5 text-blue-800">Adicionar Novo Lançamento</h2>
+            <form id="lancamentoForm">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 md:gap-6">
+                    <div class="flex flex-col">
+                        <label for="dia" class="block text-sm font-bold text-gray-700 mb-1">Dia</label>
+                        <input type="date" id="dia" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="mes" class="block text-sm font-bold text-gray-700 mb-1">Mês</label>
+                        <select id="mes" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                            <option value="">Selecione o Mês</option>
+                            <option value="1">Janeiro</option>
+                            <option value="2">Fevereiro</option>
+                            <option value="3">Março</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Maio</option>
+                            <option value="6">Junho</option>
+                            <option value="7">Julho</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Setembro</option>
+                            <option value="10">Outubro</option>
+                            <option value="11">Novembro</option>
+                            <option value="12">Dezembro</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="ano" class="block text-sm font-bold text-gray-700 mb-1">Ano</label>
+                        <select id="ano" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                            <option value="">Selecione o Ano</option>
+                            <!-- Anos serão preenchidos via JavaScript -->
+                        </select>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="descricao" class="block text-sm font-bold text-gray-700 mb-1">Descrição</label>
+                        <input type="text" id="descricao" placeholder="Ex: Salário, Almoço" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                        <span id="categoryLoadingIndicator" class="text-xs text-gray-500 mt-1 hidden"></span>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="valor" class="block text-sm font-bold text-gray-700 mb-1">Valor</label>
+                        <input type="number" id="valor" placeholder="Ex: 25.50" step="0.01" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="categoria" class="block text-sm font-bold text-gray-700 mb-1">Categoria</label>
+                        <select id="categoria" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                            <option value="">Selecione a Categoria</option>
+                            <option value="Salário">Salário</option>
+                            <option value="Renda Extra">Renda Extra</option>
+                            <option value="Investimento">Investimento</option>
+                            <option value="Alimentação">Alimentação</option>
+                            <option value="Transporte">Transporte</option>
+                            <option value="Lazer">Lazer</option>
+                            <option value="Moradia">Moradia</option>
+                            <option value="Contas">Contas (água, luz, internet)</option>
+                            <option value="Educação">Educação</option>
+                            <option value="Saúde">Saúde</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Tipo</label>
+                        <div class="flex flex-row items-center gap-x-3 h-full">
+                            <input type="radio" id="tipoEntrada" name="tipo" value="entrada" class="form-radio h-5 w-5 text-green-600 focus:ring-green-500" checked>
+                            <label for="tipoEntrada" class="text-gray-800 text-base font-bold">Entrada</label>
+                            <input type="radio" id="tipoSaida" name="tipo" value="saida" class="form-radio h-5 w-5 text-red-600 focus:ring-red-500">
+                            <label for="tipoSaida" class="text-gray-800 text-base font-bold">Saída</label>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="month" class="block text-gray-700 text-sm font-bold mb-2">Mês</label>
-                    <select id="month" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200">
-                        <option value="">Selecione o Mês</option>
-                        <option value="1">Janeiro</option>
-                        <option value="2">Fevereiro</option>
-                        <option value="3">Março</option>
-                        <option value="4">Abril</option>
-                        <option value="5">Maio</option>
-                        <option value="6">Junho</option>
-                        <option value="7">Julho</option>
-                        <option value="8">Agosto</option>
-                        <option value="9">Setembro</option>
-                        <option value="10">Outubro</option>
-                        <option value="11">Novembro</option>
-                        <option value="12">Dezembro</option>
+                <div id="parcelaFields" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+                    <div class="flex flex-col">
+                        <label for="parcelaAtual" class="block text-sm font-bold text-gray-700 mb-1">Parcela Atual</label>
+                        <select id="parcelaAtual" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
+                            <option value="0">-</option>
+                            <!-- Opções de 1 a 12 serão preenchidas via JavaScript -->
+                        </select>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="totalParcelas" class="block text-sm font-bold text-gray-700 mb-1">Total de Parcelas</label>
+                        <select id="totalParcelas" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
+                            <option value="0">-</option>
+                            <!-- Opções de 1 a 12 serão preenchidas via JavaScript -->
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center">
+                    <input type="checkbox" id="isRecurring" class="form-checkbox h-5 w-5 text-purple-600 rounded">
+                    <label for="isRecurring" class="ml-2 text-base font-bold text-gray-700">Cobrança Recorrente</label>
+                </div>
+                <button type="submit" id="addGastoBtn" class="mt-8 w-full bg-blue-600 text-white p-3.5 rounded-lg hover:bg-blue-700 transition-all duration-300 shadow-lg text-lg font-semibold transform hover:-translate-y-0.5">Adicionar Lançamento</button>
+            </form>
+        </div>
+
+        <!-- Filtro de Mês e Ano para o Resumo -->
+        <div class="mb-8 p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200 shadow-md">
+            <h2 class="text-2xl font-bold mb-4 text-purple-800">Filtrar Resumo</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="flex flex-col">
+                    <label class="block text-lg font-bold text-gray-700 mb-2">Mês:</label>
+                    <div id="filterMesGroup" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2 border border-gray-300 rounded-lg bg-white shadow-sm max-h-48 overflow-y-auto">
+                        <!-- Checkbox "Selecionar Todos os Meses" -->
+                        <div class="flex items-center">
+                            <input type="checkbox" id="filterMesAll" class="form-checkbox h-4 w-4 text-purple-600 rounded">
+                            <label for="filterMesAll" class="ml-2 text-sm font-semibold text-gray-700">Todos os Meses</label>
+                        </div>
+                        <!-- Meses serão preenchidos via JavaScript como checkboxes individuais -->
+                        <div class="flex items-center"><input type="checkbox" id="filterMes1" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="1"><label for="filterMes1" class="ml-2 text-sm text-gray-700">Janeiro</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes2" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="2"><label for="filterMes2" class="ml-2 text-sm text-gray-700">Fevereiro</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes3" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="3"><label for="filterMes3" class="ml-2 text-sm text-gray-700">Março</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes4" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="4"><label for="filterMes4" class="ml-2 text-sm text-gray-700">Abril</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes5" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="5"><label for="filterMes5" class="ml-2 text-sm text-gray-700">Maio</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes6" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="6"><label for="filterMes6" class="ml-2 text-sm text-gray-700">Junho</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes7" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="7"><label for="filterMes7" class="ml-2 text-sm text-gray-700">Julho</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes8" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="8"><label for="filterMes8" class="ml-2 text-sm text-gray-700">Agosto</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes9" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="9"><label for="filterMes9" class="ml-2 text-sm text-gray-700">Setembro</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes10" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="10"><label for="filterMes10" class="ml-2 text-sm text-gray-700">Outubro</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes11" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="11"><label for="filterMes11" class="ml-2 text-sm text-gray-700">Novembro</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes12" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="12"><label for="filterMes12" class="ml-2 text-sm text-gray-700">Dezembro</label></div>
+                    </div>
+                </div>
+                <div class="flex flex-col">
+                    <label for="filterAno" class="block text-lg font-bold text-gray-700 mb-2">Ano:</label>
+                    <select id="filterAno" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+                        <option value="all">Todos os Anos</option>
+                        <!-- Anos serão preenchidos via JavaScript -->
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="year" class="block text-gray-700 text-sm font-bold mb-2">Ano</label>
-                    <select id="year" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200">
-                        <option value="">Selecione o Ano</option>
-                    </select>
-                </div>
-                <div class="form-group col-span-1 md:col-span-2 lg:col-span-3">
-                    <label for="description" class="block text-gray-700 text-sm font-bold mb-2">Descrição</label>
-                    <input type="text" id="description" placeholder="Ex: Salário, Almoço" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200">
-                </div>
-                <div class="form-group">
-                    <label for="value" class="block text-gray-700 text-sm font-bold mb-2">Valor</label>
-                    <input type="number" id="value" placeholder="Ex: 25.50" step="0.01" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200">
-                </div>
-                <div class="form-group">
-                    <label for="category" class="block text-gray-700 text-sm font-bold mb-2">Categoria</label>
-                    <select id="category" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200">
-                        <option value="">Selecione a Categoria</option>
-                        <option value="Alimentação">Alimentação</option>
-                        <option value="Transporte">Transporte</option>
-                        <option value="Moradia">Moradia</option>
-                        <option value="Saúde">Saúde</option>
-                        <option value="Educação">Educação</option>
-                        <option value="Lazer">Lazer</option>
-                        <option value="Salário">Salário</option>
-                        <option value="Freelance">Freelance</option>
-                        <option value="Investimento">Investimento</option>
-                        <option value="Outros">Outros</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="type" class="block text-gray-700 text-sm font-bold mb-2">Tipo</label>
-                    <select id="type" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200">
-                        <option value="entrada">Entrada</option>
-                        <option value="saida">Saída</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="is-installment" class="block text-gray-700 text-sm font-bold mb-2">É Parcela?</label>
-                    <input type="checkbox" id="is-installment" class="form-checkbox h-5 w-5 text-indigo-600">
-                </div>
-                <div class="form-group">
-                    <label for="current-installment" class="block text-gray-700 text-sm font-bold mb-2">Parcela Atual</label>
-                    <input type="number" id="current-installment" placeholder="-" disabled class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight bg-gray-200 cursor-not-allowed">
-                </div>
-                <div class="form-group">
-                    <label for="total-installments" class="block text-gray-700 text-sm font-bold mb-2">Total de Parcelas</label>
-                    <input type="number" id="total-installments" placeholder="-" disabled class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight bg-gray-200 cursor-not-allowed">
-                </div>
             </div>
-            <button id="addEntryButton" class="confirm-btn-primary w-full mt-4 flex items-center justify-center">
-                <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                Adicionar Lançamento
-            </button>
-        </section>
-
-        <section class="entries-summary-section bg-green-50 p-6 rounded-lg shadow-sm mb-8">
-            <h2 class="text-2xl font-bold text-green-700 mb-4">Resumo de Lançamentos</h2>
-            <div class="flex flex-col md:flex-row gap-4 items-center mb-4">
-                <label for="filterMonth" class="text-gray-700 font-semibold">Mês:</label>
-                <select id="filterMonth" class="shadow appearance-none border rounded-lg py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-200 flex-grow">
-                    <option value="all">Todos os Meses</option>
-                    <option value="1">Janeiro</option>
-                    <option value="2">Fevereiro</option>
-                    <option value="3">Março</option>
-                    <option value="4">Abril</option>
-                    <option value="5">Maio</option>
-                    <option value="6">Junho</option>
-                    <option value="7">Julho</option>
-                    <option value="8">Agosto</option>
-                    <option value="9">Setembro</option>
-                    <option value="10">Outubro</option>
-                    <option value="11">Novembro</option>
-                    <option value="12">Dezembro</option>
-                </select>
-                <label for="filterYear" class="text-gray-700 font-semibold">Ano:</label>
-                <select id="filterYear" class="shadow appearance-none border rounded-lg py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition duration-200 flex-grow">
-                    <option value="all">Todos os Anos</option>
-                    </select>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="card p-4 rounded-lg shadow-md bg-white border border-green-200">
-                    <h3 class="text-lg font-semibold text-green-600 mb-2">Total de Entradas</h3>
-                    <p id="totalEntradas" class="text-2xl font-bold text-income">R$ 0,00</p>
-                </div>
-                <div class="card p-4 rounded-lg shadow-md bg-white border border-red-200">
-                    <h3 class="text-lg font-semibold text-red-600 mb-2">Total de Saídas</h3>
-                    <p id="totalSaidas" class="text-2xl font-bold text-expense">R$ 0,00</p>
-                </div>
-                <div class="card p-4 rounded-lg shadow-md bg-white border border-indigo-200">
-                    <h3 class="text-lg font-semibold text-indigo-600 mb-2">Saldo Atual</h3>
-                    <p id="saldoMes" class="text-2xl font-bold text-indigo-800">R$ 0,00</p>
-                </div>
-            </div>
-        </section>
-
-        <section class="entries-list-section bg-purple-50 p-6 rounded-lg shadow-sm mb-8">
-            <h2 class="text-2xl font-bold text-purple-700 mb-4">Lançamentos Detalhados</h2>
-            <div class="overflow-x-auto">
-                <table id="gastosTable" class="min-w-full bg-white rounded-lg shadow-md">
-                    <thead>
-                        <tr class="bg-purple-100 text-purple-800 uppercase text-sm leading-normal">
-                            <th class="py-3 px-6 text-left">Data</th>
-                            <th class="py-3 px-6 text-left">Descrição</th>
-                            <th class="py-3 px-6 text-left">Categoria</th>
-                            <th class="py-3 px-6 text-right">Valor</th>
-                            <th class="py-3 px-6 text-center">Tipo</th>
-                            <th class="py-3 px-6 text-center">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="gastosTableBody" class="text-gray-700 text-sm font-light">
-                        <tr><td colspan="6" class="text-center py-4 text-gray-500">Nenhum lançamento encontrado para o período selecionado.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <div id="alertModal" class="modal">
-            <div class="modal-content">
-                <span id="closeAlertModal" class="close-button">&times;</span>
-                <p id="alertMessage" class="text-lg font-semibold mb-4"></p>
-                <button id="okButton" class="confirm-btn-primary">OK</button>
+            <!-- Campo de busca -->
+            <div class="mt-4">
+                <label for="searchBar" class="block text-lg font-bold text-gray-700 mb-2">Buscar:</label>
+                <input type="text" id="searchBar" placeholder="Pesquisar por descrição, categoria ou valor" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
             </div>
         </div>
 
+        <!-- Tabela de Lançamentos -->
+        <div class="mb-8 overflow-x-auto rounded-xl shadow-lg border border-gray-200 bg-white">
+            <h2 class="text-2xl md:text-3xl font-bold mb-4 text-gray-800 p-6 bg-gray-50 border-b border-gray-200 rounded-t-xl">Seus Lançamentos</h2>
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider rounded-tl-xl">
+                            <input type="checkbox" id="selectAllCheckbox" class="form-checkbox h-4 w-4 text-blue-600 rounded">
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Data Compra Original</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Ações Recorrência</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Descrição</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Valor (R$)</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Categoria</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Tipo</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider rounded-tr-xl">Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="gastosTableBody" class="bg-white divide-y divide-gray-200">
+                    <!-- Linhas de lançamentos serão inseridas aqui pelo JavaScript -->
+                </tbody>
+            </table>
+            <div id="no-expenses-message" class="text-center py-8 text-gray-500 italic hidden">Nenhum lançamento registrado ainda. Adicione seu primeiro lançamento!</div>
+        </div>
+
+        <!-- Botão Excluir Selecionados -->
+        <button id="deleteSelectedBtn" class="mt-4 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 shadow-lg text-lg font-semibold transform hover:-translate-y-0.5 hidden">Excluir Selecionados</button>
+
+        <!-- Resumo Mensal -->
+        <div class="mt-8 p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 shadow-lg transform hover:scale-[1.005] transition-transform duration-200 ease-out">
+            <h2 class="text-2xl md:text-3xl font-bold mb-4 text-green-800">Resumo Mensal</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-lg">
+                <p class="text-gray-700 mb-2 font-bold">Total de Entradas: <span id="totalEntradas" class="font-extrabold text-green-700 text-xl">R$ 0.00</span></p>
+                <p class="text-gray-700 mb-2 font-bold">Total de Saídas: <span id="totalSaidas" class="font-extrabold text-red-700 text-xl">R$ 0.00</span></p>
+                <p class="text-gray-700 mb-2 font-bold">Média de Gasto Diário: <span id="mediaDiaria" class="font-extrabold text-red-700 text-xl">R$ 0.00</span></p>
+                <p class="text-gray-800 text-2xl font-extrabold col-span-full">Saldo do Mês: <span id="saldoMes" class="font-extrabold text-green-800">R$ 0.00</span></p>
+            </div>
+            <!-- Barra de Status do Saldo -->
+            <div class="w-full bg-gray-200 rounded-full h-4 mt-4 overflow-hidden">
+                <div id="saldoBar" class="h-4 rounded-full transition-all duration-500" style="width: 0%;"></div>
+            </div>
+            <p id="saldoStatus" class="text-center font-bold text-lg mt-2 text-gray-700">Saldo: R$ 0.00</p>
+        </div>
     </div>
 
-    <div id="authModal" class="modal">
-        <div class="modal-content">
-            <span id="closeAuthModal" class="close-button">&times;</span>
-            <div id="loginSection">
-                <h3 class="text-2xl font-bold mb-6 text-indigo-800">Login</h3>
-                <div class="flex flex-col gap-4 mb-6">
-                    <input type="email" id="emailLoginInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200" placeholder="Seu e-mail" required autocomplete="email">
-                    <input type="password" id="passwordLoginInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200" placeholder="Sua senha" required autocomplete="current-password">
-                </div>
-                <div class="flex flex-col gap-4 mb-6">
-                    <button id="loginBtn" class="confirm-btn-primary w-full flex items-center justify-center">
-                        <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
-                        Entrar
-                    </button>
-                    <button id="loginGoogleBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 w-full flex items-center justify-center">
-                        <svg class="w-5 h-5 inline-block mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.675 12.32c0-.6-.05-1.19-.15-1.77h-10.96v3.29h6.14a4.015 4.015 0 01-1.74 2.62v2.13h2.73c1.61-1.48 2.54-3.72 2.54-6.27z" fill="#4285F4"/><path d="M11.665 23.36c2.97 0 5.46-1.04 7.28-2.83l-2.73-2.13c-1.39.95-3.18 1.51-4.55 1.51-3.5 0-6.47-2.37-7.55-5.54H1.36v2.21c1.97 3.9 6.06 6.57 10.3 6.57z" fill="#34A853"/><path d="M4.115 14.15c-.24-.71-.38-1.46-.38-2.22s.14-1.51.38-2.22V7.5h-2.21v2.22c-.67 1.34-1.05 2.89-1.05 4.54s.38 3.2 1.05 4.54l2.21 2.22v-2.21z" fill="#FBBC05"/><path d="M11.665 3.33c1.81 0 3.44.63 4.73 1.83l2.43-2.43C16.925 1.08 14.655 0 11.665 0 7.335 0 3.245 2.67.665 6.57l2.21 2.21C5.195 6.47 8.165 4.1 11.665 4.1z" fill="#EA4335"/></svg>
-                        Entrar com Google
-                    </button>
-                </div>
-                <p class="text-sm text-center text-gray-600 mb-4 cursor-pointer hover:text-indigo-600 transition duration-200" id="forgotPasswordLink">Esqueceu a palavra-passe?</p>
-                <button id="registerBtn" class="confirm-btn-primary w-full flex items-center justify-center transition duration-200">
-    <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zm-1.5 6H5.432a2.25 2.25 0 01-2.185-2.541 6.536 6.536 0 011.666-2.617 4.502 4.502 0 001.071-3.238V3"></path>
-    </svg>
-    Registrar
-</button>
-            </div>
+    <!-- Modais (Message, Confirm, Stop Recurring, Edit Recurring Choice) -->
 
-            <div id="registerSection" class="hidden">
-                <h3 class="text-2xl font-bold mb-6 text-indigo-800">Registo</h3>
-                <div class="flex flex-col gap-4 mb-6">
-                    <input type="email" id="emailRegisterInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200" placeholder="Seu e-mail" required autocomplete="email">
-                    <input type="password" id="passwordRegisterInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200" placeholder="Criar senha (mínimo 6 caracteres)" required autocomplete="new-password">
-                    <input type="password" id="confirmPasswordRegisterInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200" placeholder="Confirmar senha" required autocomplete="new-password">
-                </div>
-                <button id="registerBtn" class="confirm-btn-primary w-full mb-4 flex items-center justify-center">
-                    <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM12 14c-1.474 0-2.883.33-4.048.975M10 20v-2.75a3 3 0 00-3-3H6m3-4a8 8 0 00-6.048 2.975M12 14v3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM1...
-                </button>
-                <button id="switchToLoginFromRegisterBtn" class="cancel-btn w-full transition duration-200">Já tem conta? Inicie sessão!</button>
-            </div>
+    <!-- Modal de Mensagem Padrão -->
+    <div id="messageBoxOverlay" class="message-box-overlay hidden">
+        <div class="message-box-content">
+            <h3 id="messageBoxTitle"></h3>
+            <p id="messageBoxMessage"></p>
+            <button id="messageBoxOkBtn">OK</button>
+        </div>
+    </div>
 
-            <div id="resetPasswordSection" class="hidden">
-                <h3 class="text-xl font-bold mb-4 text-gray-800">Redefinir Palavra-passe</h3>
-                <p class="text-gray-700 mb-6">Insira o seu e-mail para receber um link de redefinição de palavra-passe.</p>
-                <input type="email" id="emailResetPasswordInput" class="shadow appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-200 mb-4" placeholder="o seu e-mail" required autocomplete="email">
-                <div class="flex gap-4">
-                    <button id="resetPasswordBtn" class="confirm-btn-primary flex-grow">Enviar Link</button>
-                    <button id="switchToLoginFromResetBtn" class="cancel-btn flex-grow">Cancelar</button>
-                </div>
-            </div>
-
-            <div id="auth-loading-spinner" class="hidden flex justify-center items-center mt-4">
-                <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4"></div>
+    <!-- Modal de Confirmação Padrão -->
+    <div id="confirmBoxOverlay" class="confirm-box-overlay hidden">
+        <div class="confirm-box-content">
+            <h3 id="confirmBoxTitle"></h3>
+            <p id="confirmBoxMessage"></p>
+            <div class="confirm-box-buttons">
+                <button id="confirmBoxYesBtn" class="confirm-yes">Sim</button>
+                <button id="confirmBoxNoBtn" class="confirm-no">Não</button>
             </div>
         </div>
     </div>
 
-    <script type="module" src="script.js"></script>
+    <!-- Modal para Parar Recorrência -->
+    <div id="stopRecurringMonthsModalOverlay" class="stop-recurring-modal-overlay hidden">
+        <div class="stop-recurring-modal-content">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Parar Cobrança Recorrente</h3>
+            <p class="text-gray-700 mb-4">Selecione como deseja parar esta cobrança recorrente:</p>
+            
+            <div class="flex items-center mb-3">
+                <input type="checkbox" id="stopFromCurrentMonthCheckbox" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                <label for="stopFromCurrentMonthCheckbox" class="ml-2 text-base font-bold text-gray-700">
+                    Parar a partir de <span id="currentMonthAndYear" class="font-semibold"></span> e futuros.
+                </label>
+            </div>
+
+            <div id="specificMonthsSelection" class="mt-4 p-3 border border-gray-300 rounded-lg bg-gray-50 text-left">
+                <p class="text-sm font-semibold text-gray-700 mb-2">Ou selecione meses específicos para parar:</p>
+                <div class="grid grid-cols-3 gap-2">
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="1"><span class="ml-2 text-sm text-gray-700">Jan</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="2"><span class="ml-2 text-sm text-gray-700">Fev</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="3"><span class="ml-2 text-sm text-gray-700">Mar</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="4"><span class="ml-2 text-sm text-gray-700">Abr</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="5"><span class="ml-2 text-sm text-gray-700">Mai</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="6"><span class="ml-2 text-sm text-gray-700">Jun</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="7"><span class="ml-2 text-sm text-gray-700">Jul</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="8"><span class="ml-2 text-sm text-gray-700">Ago</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="9"><span class="ml-2 text-sm text-gray-700">Set</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="10"><span class="ml-2 text-sm text-gray-700">Out</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="11"><span class="ml-2 text-sm text-gray-700">Nov</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="12"><span class="ml-2 text-sm text-gray-700">Dez</span></label>
+                </div>
+                <div class="mt-3">
+                    <label for="stopRecurringYearSelect" class="block text-sm font-bold text-gray-700 mb-1">Ano:</label>
+                    <select id="stopRecurringYearSelect" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+                        <!-- Anos serão preenchidos via JavaScript -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="stop-recurring-modal-buttons mt-6">
+                <button id="confirmStopRecurringBtn" class="confirm-btn-primary">Confirmar</button>
+                <button id="cancelStopRecurringBtn" class="cancel-btn">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Escolha de Edição Recorrente/Parcelada -->
+    <div id="editRecurringChoiceModalOverlay" class="edit-recurring-choice-modal-overlay hidden">
+        <div class="edit-recurring-choice-modal-content">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Editar Lançamento</h3>
+            <p class="text-gray-700 mb-6" id="editRecurringChoiceMessage">Este é um lançamento recorrente ou parcelado. Como você gostaria de aplicar esta edição?</p>
+            <div class="edit-recurring-choice-modal-buttons">
+                <button id="applyToThisBtn" class="confirm-btn-primary">Apenas Este</button>
+                <button id="applyToFutureBtn" class="confirm-btn-primary">Este e Futuros</button>
+                <button id="cancelEditRecurringBtn" class="cancel-btn">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seu script principal (agora carregado como módulo) -->
+    <script type="module" src="script.js" defer></script>
 </body>
 </html>

@@ -212,8 +212,8 @@ function updateHouseholdDisplay() {
 
 // --- Funções de Transação ---
 
-// Adicionar transação
-transactionForm.addEventListener('submit', async (e) => {
+// Função nomeada para adicionar transação (CORREÇÃO AQUI)
+const addTransaction = async (e) => {
     e.preventDefault();
 
     const currentUser = firebase.auth().currentUser; // Garante que currentUser está atualizado
@@ -288,8 +288,7 @@ transactionForm.addEventListener('submit', async (e) => {
         console.error("Erro ao adicionar transação:", error);
         alert(`Erro ao adicionar transação: ${error.message}`);
     }
-});
-
+}; // Fim da função addTransaction
 
 // Carregar transações
 const loadTransactions = () => {
@@ -543,7 +542,7 @@ const renderMonthCheckboxes = () => {
 filterYearSelect.addEventListener('change', loadTransactions);
 filterDescriptionInput.addEventListener('input', loadTransactions);
 monthsCheckboxesDiv.addEventListener('change', loadTransactions);
-// O event listener para o formulário de transação já está no início do script
+// O event listener para o formulário de transação agora referencia a função nomeada addTransaction
 transactionForm.addEventListener('submit', addTransaction);
 
 

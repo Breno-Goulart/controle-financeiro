@@ -257,12 +257,17 @@ const handleTransactionSubmit = async (e) => {
     };
 
     try {
-        const transactionRef = db.collection('public').doc('data').collection('lancamentos');
+        // AJUSTE CRÍTICO AQUI: Caminho COMPLETO da coleção no Firebase
+        const transactionCollectionRef = db.collection('artifacts')
+                                           .doc('controle-financeiro-c1a0b')
+                                           .collection('public')
+                                           .doc('data')
+                                           .collection('lancamentos');
 
         if (editingTransactionId) {
             // Lógica de Atualização
-            console.log(`Tentando atualizar transação ${editingTransactionId} no caminho fixo: public/data/lancamentos`);
-            await transactionRef.doc(editingTransactionId).update({
+            console.log(`Tentando atualizar transação ${editingTransactionId} no caminho: artifacts/controle-financeiro-c1a0b/public/data/lancamentos`);
+            await transactionCollectionRef.doc(editingTransactionId).update({
                 ...transactionData,
                 createdAt: transactionData.createdAt // Não alterar o createdAt ao editar
             });
@@ -272,13 +277,13 @@ const handleTransactionSubmit = async (e) => {
             cancelEditButton.classList.add('hidden'); // Esconde o botão de cancelar
         } else {
             // Lógica de Adição (parcelado ou não)
-            console.log(`Tentando adicionar transação para o caminho fixo: public/data/lancamentos (com campo householdId: "${currentHouseholdId}")`);
+            console.log(`Tentando adicionar transação para o caminho: artifacts/controle-financeiro-c1a0b/public/data/lancamentos (com campo householdId: "${currentHouseholdId}")`);
             if (totalParcels > 1) {
                 for (let i = 1; i <= totalParcels; i++) {
                     const parcelDate = new Date(date);
                     parcelDate.setMonth(parcelDate.getMonth() + (i - 1)); // Avança o mês para cada parcela
 
-                    await transactionRef.add({
+                    await transactionCollectionRef.add({
                         ...transactionData,
                         date: firebase.firestore.Timestamp.fromDate(parcelDate),
                         parcel: i,
@@ -288,7 +293,7 @@ const handleTransactionSubmit = async (e) => {
                 }
                 alert(`Lançamento parcelado (${totalParcels}x) adicionado com sucesso!`);
             } else {
-                await transactionRef.add({
+                await transactionCollectionRef.add({
                     ...transactionData,
                     parcel: 1,
                     totalParcels: 1,
@@ -311,7 +316,7 @@ const loadTransactions = () => {
 
     if (!currentUser) {
         console.warn('Usuário não logado. Não é possível carregar lançamentos.');
-        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Faça login para ver os lançamentos.</td></tr>';
+        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Faça login para ver os lançamentos.</td></td>';
         clearMonthlySummary();
         return;
     }
@@ -323,11 +328,16 @@ const loadTransactions = () => {
         return;
     }
 
-    console.log(`Tentando carregar lançamentos do caminho: public/data/lancamentos com householdId: "${currentHouseholdId}"`);
+    console.log(`Tentando carregar lançamentos do caminho: artifacts/controle-financeiro-c1a0b/public/data/lancamentos com householdId: "${currentHouseholdId}"`);
 
-    let query = db.collection('public').doc('data').collection('lancamentos');
+    // AJUSTE CRÍTICO AQUI: Caminho COMPLETO da coleção no Firebase
+    let query = db.collection('artifacts')
+                  .doc('controle-financeiro-c1a0b')
+                  .collection('public')
+                  .doc('data')
+                  .collection('lancamentos');
 
-    // APENAS PARA CONSULTA NO FIRESTORE: Filtra por householdId E ordena por data
+    // Para consulta no Firestore: Filtra por householdId E ordena por data
     // Isso requer um índice composto no Firebase: householdId ASC, date DESC
     query = query.where('householdId', '==', currentHouseholdId).orderBy('date', 'desc');
 
@@ -338,7 +348,7 @@ const loadTransactions = () => {
 
     query.onSnapshot(snapshot => {
         let transactions = [];
-        console.log(`Snapshot recebido para public/data/lancamentos. Documentos brutos do Firebase (após filtro de householdId e ordenação): ${snapshot.size}`);
+        console.log(`Snapshot recebido. Documentos brutos do Firebase (após filtro de householdId e ordenação): ${snapshot.size}`);
 
         if (snapshot.empty) {
             console.log(`Nenhum documento encontrado para o caminho, ou as regras do Firebase estão bloqueando o acesso, ou nenhum lançamento corresponde à householdId: "${currentHouseholdId}".`);
@@ -368,7 +378,7 @@ const loadTransactions = () => {
         displayTransactions(filteredTransactions);
         updateMonthlySummary(filteredTransactions);
     }, error => {
-        console.error(`Erro ao carregar lançamentos para public/data/lancamentos:`, error);
+        console.error(`Erro ao carregar lançamentos:`, error);
         let errorMessage = 'Erro ao carregar lançamentos. Verifique sua conexão ou Chave de Acesso.';
         if (error.code === 'permission-denied') {
             errorMessage = 'Permissão negada! Verifique as regras de segurança do Firebase Firestore.';
@@ -424,7 +434,13 @@ const editTransaction = async (id) => {
     }
 
     try {
-        const docRef = db.collection('public').doc('data').collection('lancamentos').doc(id);
+        // AJUSTE CRÍTICO AQUI: Caminho COMPLETO do documento no Firebase
+        const docRef = db.collection('artifacts')
+                         .doc('controle-financeiro-c1a0b')
+                         .collection('public')
+                         .doc('data')
+                         .collection('lancamentos')
+                         .doc(id);
         const doc = await docRef.get();
 
         if (!doc.exists) {
@@ -485,7 +501,13 @@ const deleteTransaction = async (id) => {
     }
 
     try {
-        const docRef = db.collection('public').doc('data').collection('lancamentos').doc(id);
+        // AJUSTE CRÍTICO AQUI: Caminho COMPLETO do documento no Firebase
+        const docRef = db.collection('artifacts')
+                         .doc('controle-financeiro-c1a0b')
+                         .collection('public')
+                         .doc('data')
+                         .collection('lancamentos')
+                         .doc(id);
         const doc = await docRef.get();
 
         if (!doc.exists) {
@@ -501,7 +523,7 @@ const deleteTransaction = async (id) => {
             return;
         }
 
-        console.log(`Tentando excluir transação ${id} do caminho: public/data/lancamentos`);
+        console.log(`Tentando excluir transação ${id} do caminho: artifacts/controle-financeiro-c1a0b/public/data/lancamentos`);
         await docRef.delete();
         alert('Lançamento excluído com sucesso!');
     } catch (error) {
@@ -601,7 +623,7 @@ const renderMonthCheckboxes = () => {
         { name: 'Janeiro', value: 1 }, { name: 'Fevereiro', value: 2 }, { name: 'Março', value: 3 },
         { name: 'Abril', value: 4 }, { name: 'Maio', value: 5 }, { name: 'Junho', value: 6 },
         { name: 'Julho', value: 7 }, { name: 'Agosto', value: 8 }, { name: 'Setembro', value: 9 },
-        { name: 'Outubro', value: 10 }, { name: 'Novembro', 11: 11 }, { name: 'Dezembro', value: 12 }
+        { name: 'Outubro', value: 10 }, { name: 'Novembro', value: 11 }, { name: 'Dezembro', value: 12 }
     ];
 
     months.forEach(month => {

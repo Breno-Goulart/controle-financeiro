@@ -40,26 +40,23 @@ const forgotPasswordLink = document.getElementById('forgot-password-link');
 
 const transactionForm = document.getElementById('transaction-form');
 const transactionValueInput = document.getElementById('transaction-value');
-// Alterado: Tipos de transação (Entrada/Saída) agora são radio buttons
 const transactionTypeRadios = document.querySelectorAll('input[name="transaction-type"]');
 const transactionCategorySelect = document.getElementById('transaction-category');
 const transactionRecurringCheckbox = document.getElementById('transaction-recurring');
 const transactionDescriptionInput = document.getElementById('transaction-description');
 const transactionDateInput = document.getElementById('transaction-date');
-// Removida transactionKeyInput, pois a "chave ID" será householdId
-// const transactionKeyInput = document.getElementById('transaction-key'); 
 const transactionCurrentParcelInput = document.getElementById('transaction-current-parcel');
-const transactionTotalParcelsSelect = document.getElementById('transaction-total-parcels'); // Seletor de parcelas
+const transactionTotalParcelsSelect = document.getElementById('transaction-total-parcels');
 
 const transactionsTableBody = document.getElementById('transactions-table-body');
 
-// Elementos do resumo mensal (agora movidos para o final do main/body)
+// Elementos do resumo mensal
 const totalEntradasSpan = document.getElementById('total-entradas');
 const totalSaidasSpan = document.getElementById('total-saidas');
 const mediaGastoDiarioSpan = document.getElementById('media-gasto-diario');
 const saldoMesSpan = document.getElementById('saldo-mes');
 
-// Filtros (agora movidos para o final do main/body)
+// Filtros
 const filterYearSelect = document.getElementById('filter-year');
 const filterDescriptionInput = document.getElementById('filter-description');
 const monthsCheckboxesDiv = document.querySelector('.months-checkboxes');
@@ -90,7 +87,6 @@ const updateUIForAuthStatus = (user) => {
         loadTransactions(); // Carrega transações do usuário/household logado
         populateFilterYears();
         renderMonthCheckboxes();
-        updateMonthlySummary(); // Atualiza o resumo ao logar
     } else {
         currentUserId = null;
         currentUserName = null;
@@ -195,7 +191,7 @@ setHouseholdIdBtn.addEventListener('click', () => {
         localStorage.setItem('householdId', newHouseholdId); // Salva no localStorage
         updateHouseholdDisplay();
         loadTransactions(); // Recarrega transações com o novo householdId
-        alert(`Chave de Acesso definida para: ${newHouseholdId}`);
+        alert(`Chave de Acesso definida para: "${newHouseholdId}"`);
     } else {
         alert('Por favor, insira uma Chave de Acesso válida.');
     }
@@ -215,6 +211,7 @@ function updateHouseholdDisplay() {
 transactionForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const currentUser = firebase.auth().currentUser; // Garante que currentUser está atualizado
     if (!currentUser) {
         alert('Você precisa estar logado para adicionar lançamentos.');
         return;
@@ -228,7 +225,6 @@ transactionForm.addEventListener('submit', async (e) => {
     const date = transactionDateInput.value;
     const description = transactionDescriptionInput.value.trim();
     const value = parseFloat(transactionValueInput.value);
-    // Pega o valor do radio button selecionado
     const type = document.querySelector('input[name="transaction-type"]:checked').value;
     const category = transactionCategorySelect.value;
     const isRecurring = transactionRecurringCheckbox.checked;
@@ -252,6 +248,7 @@ transactionForm.addEventListener('submit', async (e) => {
     };
 
     try {
+        console.log(`Tentando adicionar transação para householdId: "${currentHouseholdId}"`);
         const transactionRef = db.collection('households').doc(currentHouseholdId).collection('transactions');
 
         if (totalParcels > 1) {
@@ -288,11 +285,23 @@ transactionForm.addEventListener('submit', async (e) => {
 
 // Carregar transações
 const loadTransactions = () => {
-    if (!currentUserId || !currentHouseholdId) {
-        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Faça login e defina uma Chave de Acesso para ver os lançamentos.</td></tr>';
+    const currentUser = firebase.auth().currentUser; // Garante que currentUser está atualizado
+
+    if (!currentUser) { // Alterado de currentUserId para currentUser para consistência
+        console.warn('Usuário não logado. Não é possível carregar lançamentos.');
+        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Faça login para ver os lançamentos.</td></tr>';
         clearMonthlySummary();
         return;
     }
+
+    if (!currentHouseholdId) {
+        console.warn('Nenhuma Chave de Acesso definida. Não é possível carregar lançamentos.');
+        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Defina uma Chave de Acesso (ID da Família/Grupo) para ver os lançamentos.</td></tr>';
+        clearMonthlySummary();
+        return;
+    }
+
+    console.log(`Tentando carregar lançamentos para householdId: "${currentHouseholdId}"`);
 
     let query = db.collection('households').doc(currentHouseholdId).collection('transactions');
 
@@ -300,9 +309,14 @@ const loadTransactions = () => {
     const selectedMonths = Array.from(monthsCheckboxesDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
     const searchDescription = filterDescriptionInput.value.toLowerCase().trim();
 
-    // Filtros no lado do cliente (para meses, pois o Firestore tem limitações de query OR em múltiplos campos)
     query.orderBy('date', 'desc').onSnapshot(snapshot => {
         let transactions = [];
+        console.log(`Snapshot recebido para householdId "${currentHouseholdId}". Número de documentos brutos: ${snapshot.size}`);
+
+        if (snapshot.empty) {
+            console.log(`Nenhum documento encontrado para householdId "${currentHouseholdId}" ou as regras do Firebase estão bloqueando o acesso.`);
+        }
+
         snapshot.forEach(doc => {
             const data = doc.data();
             data.id = doc.id;
@@ -322,18 +336,26 @@ const loadTransactions = () => {
             return matchesYear && matchesMonth && matchesDescription;
         });
 
+        console.log(`Número de transações após filtragem no cliente: ${filteredTransactions.length}`);
+
         displayTransactions(filteredTransactions);
         updateMonthlySummary(filteredTransactions);
     }, error => {
-        console.error("Erro ao carregar lançamentos:", error);
-        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center text-red-500">Erro ao carregar lançamentos. Verifique sua conexão ou Chave de Acesso.</td></tr>';
+        console.error(`Erro ao carregar lançamentos para householdId "${currentHouseholdId}":`, error);
+        // Exiba um erro mais útil se for um erro de permissão do Firebase
+        let errorMessage = 'Erro ao carregar lançamentos. Verifique sua conexão ou Chave de Acesso.';
+        if (error.code === 'permission-denied') {
+            errorMessage = 'Permissão negada! Verifique as regras de segurança do Firebase Firestore.';
+        }
+        transactionsTableBody.innerHTML = `<tr><td colspan="9" class="py-4 text-center text-red-500">${errorMessage}</td></tr>`;
+        clearMonthlySummary();
     });
 };
 
 const displayTransactions = (transactions) => {
     transactionsTableBody.innerHTML = '';
     if (transactions.length === 0) {
-        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Nenhum lançamento encontrado para esta Chave de Acesso.</td></tr>';
+        transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Nenhum lançamento encontrado para esta Chave de Acesso (ou após os filtros).</td></tr>';
         return;
     }
 
@@ -379,6 +401,7 @@ const deleteTransaction = async (id) => {
         return;
     }
     try {
+        console.log(`Tentando excluir transação ${id} do householdId: "${currentHouseholdId}"`);
         await db.collection('households').doc(currentHouseholdId).collection('transactions').doc(id).delete();
         alert('Lançamento excluído com sucesso!');
     } catch (error) {

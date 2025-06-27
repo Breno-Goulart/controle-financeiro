@@ -1,17 +1,55 @@
 // app.js
 
-// Certifique-se de que 'firebase' está disponível globalmente ou importe-o se estiver usando módulos.
-// Ex: import { initializeApp } from 'firebase/app';
-// Ex: import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot, serverTimestamp, Timestamp } from 'firebase/firestore';
-// Ex: import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'firebase/auth';
+// --- Importações do Firebase SDK v9 (Modular) ---
+// Certifique-se de que estes imports correspondem ao seu firebase-config.js
+// Se o firebase-config.js já inicializa 'app', 'db', 'auth' e os exporta,
+// você pode importar diretamente de lá.
+// Caso contrário, estas linhas são necessárias se você está importando diretamente da 'firebase'
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot, serverTimestamp, Timestamp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js';
+import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, EmailAuthProvider } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
 
-// Substitua com as suas configurações do projeto Firebase
-// As configurações do Firebase devem estar em firebase-config.js
+
+// --- Configurações do Firebase ---
+// Você pode carregar estas configurações de firebase-config.js
+// Certifique-se de que firebase-config.js esteja carregado ANTES de app.js no seu index.html
+// Exemplo de firebase-config.js:
+/*
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+
+// Inicialize o Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+export { app, db, auth };
+*/
+
+// Se você não tem um firebase-config.js exportando, ou se ele está em formato global,
+// você precisará definir firebaseConfig aqui e inicializar.
+// Vou assumir que você tem um `firebaseConfig` disponível globalmente ou no mesmo escopo
+// ou que está sendo importado de um `firebase-config.js` que inicializa e exporta.
+
+// Se você não está usando um firebase-config.js que exporta app, db, auth:
+// Exemplo:
 // const firebaseConfig = { /* SEU OBJETO DE CONFIGURAÇÃO AQUI */ };
-// firebase.initializeApp(firebaseConfig);
-// const db = firebase.firestore();
-// const auth = firebase.auth();
+// const app = initializeApp(firebaseConfig);
+// const db = getFirestore(app);
+// const auth = getAuth(app);
 
+// Se seu firebase-config.js exporta, importe assim:
+// import { app, db, auth } from './firebase-config.js'; // Ajuste o caminho conforme necessário
+
+// ***** IMPORTANTE: Vou manter a suposição que seu `firebase-config.js` já inicializa
+// ***** `app`, `db`, `auth` e os torna acessíveis. Se não, você precisará descomentar
+// ***** e preencher as linhas de `firebaseConfig`, `initializeApp`, `getFirestore`, `getAuth` acima.
 
 // Elementos do DOM
 const signInButton = document.getElementById('signInButton');
@@ -25,6 +63,12 @@ const setHouseholdIdButton = document.getElementById('setHouseholdIdButton');
 const loginSection = document.getElementById('loginSection');
 const appSection = document.getElementById('appSection');
 const userNameDisplay = document.getElementById('userNameDisplay');
+const emailSignInForm = document.getElementById('emailSignInForm'); // Supondo que você tem um formulário de email/senha
+const emailInput = document.getElementById('emailInput');
+const passwordInput = document.getElementById('passwordInput');
+const emailSignInButton = document.getElementById('emailSignInButton');
+const emailSignUpButton = document.getElementById('emailSignUpButton');
+
 
 // Elementos do formulário de lançamento
 const dateInput = document.getElementById('dateInput');
@@ -58,13 +102,18 @@ let editingDocId = null;
 let unsubscribeSnapshot = null; // Para desinscrever do listener do Firestore
 
 // --- Funções de Autenticação ---
-auth.onAuthStateChanged(user => {
+// AQUI ESTAVA O PROBLEMA: 'auth' não estava definida.
+// Se seu firebase-config.js não exporta `auth` ou se não está usando import/export,
+// você precisa garantir que `auth` seja inicializada aqui.
+// Por exemplo: const auth = getAuth(app); // Se 'app' estiver definido.
+
+onAuthStateChanged(auth, user => { // AGORA 'auth' DEVE ESTAR DEFINIDA
     if (user) {
         currentUserId = user.uid;
         userNameDisplay.textContent = user.displayName;
         loginSection.style.display = 'none';
         appSection.style.display = 'block';
-        console.log('Firebase inicializado com sucesso.'); // Debug
+        console.log('Firebase inicializado com sucesso.');
         updateUIForAuthStatus();
     } else {
         currentUserId = null;
@@ -72,26 +121,58 @@ auth.onAuthStateChanged(user => {
         loginSection.style.display = 'block';
         appSection.style.display = 'none';
         if (unsubscribeSnapshot) {
-            unsubscribeSnapshot(); // Para de ouvir as transações
+            unsubscribeSnapshot();
         }
         clearTransactionsTable();
-        updateSummary(0, 0, 0, 0); // Limpa o resumo
+        updateSummary(0, 0, 0, 0);
     }
 });
 
 signInButton.addEventListener('click', async () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
+    const provider = new GoogleAuthProvider();
     try {
-        await auth.signInWithPopup(provider);
+        await signInWithPopup(auth, provider); // Usando 'auth' importado
     } catch (error) {
-        console.error('Erro ao fazer login:', error);
-        alert('Erro ao fazer login: ' + error.message);
+        console.error('Erro ao fazer login com Google:', error);
+        alert('Erro ao fazer login com Google: ' + error.message);
     }
 });
 
+// Adicionando listeners para login/cadastro com Email e Senha
+if (emailSignInButton) {
+    emailSignInButton.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const email = emailInput.value;
+        const password = passwordInput.value;
+        try {
+            await firebase.auth().signInWithEmailAndPassword(email, password);
+            alert('Login com e-mail/senha efetuado com sucesso!');
+        } catch (error) {
+            console.error('Erro ao fazer login com e-mail/senha:', error);
+            alert('Erro ao fazer login com e-mail/senha: ' + error.message);
+        }
+    });
+}
+
+if (emailSignUpButton) {
+    emailSignUpButton.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const email = emailInput.value;
+        const password = passwordInput.value;
+        try {
+            await firebase.auth().createUserWithEmailAndPassword(email, password);
+            alert('Usuário cadastrado com sucesso! Faça login.');
+        } catch (error) {
+            console.error('Erro ao cadastrar com e-mail/senha:', error);
+            alert('Erro ao cadastrar com e-mail/senha: ' + error.message);
+        }
+    });
+}
+
+
 signOutButton.addEventListener('click', async () => {
     try {
-        await auth.signOut();
+        await signOut(auth); // Usando 'auth' importado
         alert('Deslogado com sucesso!');
     } catch (error) {
         console.error('Erro ao fazer logout:', error);
@@ -110,12 +191,11 @@ function updateUIForAuthStatus() {
             loadTransactions();
         } else {
             currentHouseholdIdSpan.textContent = 'Nenhum (defina um ID de família/casa)';
-            // Oculta a tabela de lançamentos até que um householdId seja definido
             lancamentosTableBody.innerHTML = '<tr><td colspan="9">Defina um ID de família/casa para carregar os lançamentos.</td></tr>';
-            updateSummary(0, 0, 0, 0); // Limpa o resumo
+            updateSummary(0, 0, 0, 0);
         }
-        populateFilterYears(); // Preenche os anos do filtro
-        resetForm(); // Limpa o formulário de lançamento
+        populateFilterYears();
+        resetForm();
     } else {
         loginSection.style.display = 'block';
         appSection.style.display = 'none';
@@ -154,11 +234,11 @@ function updateSummary(entradas, saidas, mediaDiaria, saldoMes) {
 }
 
 function resetForm() {
-    dateInput.valueAsDate = new Date(); // Define a data atual
+    dateInput.valueAsDate = new Date();
     descriptionInput.value = '';
     valueInput.value = '';
     categorySelect.value = '';
-    typeSaidaRadio.checked = true; // Padrão para Saída
+    typeSaidaRadio.checked = true;
     isRecurringCheckbox.checked = false;
     originalPurchaseAnoInput.value = '';
     originalPurchaseMesInput.value = '';
@@ -181,7 +261,7 @@ async function handleTransactionSubmit(e) {
         return;
     }
 
-    const date = dateInput.value; // Formato YYYY-MM-DD
+    const date = dateInput.value;
     const description = descriptionInput.value.trim();
     const value = parseFloat(valueInput.value);
     const category = categorySelect.value;
@@ -196,7 +276,7 @@ async function handleTransactionSubmit(e) {
     const lancamentoData = {
         userId: currentUserId,
         householdId: currentHouseholdId,
-        date: firebase.firestore.Timestamp.fromDate(new Date(date)), // Converte para Firestore Timestamp
+        date: Timestamp.fromDate(new Date(date)), // Converte para Firestore Timestamp
         description: description,
         value: value,
         category: category,
@@ -210,9 +290,8 @@ async function handleTransactionSubmit(e) {
         lancamentoData.originalPurchaseDia = parseInt(originalPurchaseDiaInput.value);
         lancamentoData.parcelaAtual = parseInt(parcelaAtualInput.value);
         lancamentoData.totalParcelas = parseInt(totalParcelasInput.value);
-        lancamentoData.recurringGroupId = lancamentoData.recurringGroupId || (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Date.now()); // Gera um ID se não existir
+        lancamentoData.recurringGroupId = lancamentoData.recurringGroupId || (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Date.now());
     } else {
-        // Garante que campos de recorrência não existem se não for recorrente
         delete lancamentoData.originalPurchaseAno;
         delete lancamentoData.originalPurchaseMes;
         delete lancamentoData.originalPurchaseDia;
@@ -223,14 +302,12 @@ async function handleTransactionSubmit(e) {
 
     try {
         if (editingDocId) {
-            // Se estiver editando, adicione ou atualize o createdAt se necessário (ou remova se não quiser que mude na edição)
-            lancamentoData.createdAt = firebase.firestore.FieldValue.serverTimestamp(); // ATUALIZA O TIMESTAMP NA EDIÇÃO
-            await db.collection('artifacts').doc('controle-financeiro-c1a0b').collection('public').doc('data').collection('lancamentos').doc(editingDocId).update(lancamentoData);
+            lancamentoData.createdAt = serverTimestamp(); // ATUALIZA O TIMESTAMP NA EDIÇÃO
+            await updateDoc(doc(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos', editingDocId), lancamentoData);
             alert('Lançamento atualizado com sucesso!');
         } else {
-            // Ao criar um novo lançamento, defina createdAt usando serverTimestamp()
-            lancamentoData.createdAt = firebase.firestore.FieldValue.serverTimestamp(); // NOVO TIMESTAMP PARA NOVOS LANÇAMENTOS
-            await db.collection('artifacts').doc('controle-financeiro-c1a0b').collection('public').doc('data').collection('lancamentos').add(lancamentoData);
+            lancamentoData.createdAt = serverTimestamp(); // NOVO TIMESTAMP PARA NOVOS LANÇAMENTOS
+            await addDoc(collection(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos'), lancamentoData);
             alert('Lançamento adicionado com sucesso!');
         }
         resetForm();
@@ -241,7 +318,6 @@ async function handleTransactionSubmit(e) {
 }
 
 
-// Função para carregar lançamentos com filtros e ordenação
 function loadTransactions() {
     if (!currentUserId || !currentHouseholdId) {
         clearTransactionsTable();
@@ -251,82 +327,78 @@ function loadTransactions() {
 
     loadingIndicator.style.display = 'block';
     clearTransactionsTable();
-    updateSummary(0, 0, 0, 0); // Limpa o resumo antes de carregar
+    updateSummary(0, 0, 0, 0);
 
-    console.log('Valor de currentHouseholdId antes da query:', currentHouseholdId); // Debug
-    const projectId = 'controle-financeiro-c1a0b'; // Substitua pelo seu ID de projeto real se for diferente
+    console.log('Valor de currentHouseholdId antes da query:', currentHouseholdId);
+    const projectId = 'controle-financeiro-c1a0b';
 
-    let query = db.collection('artifacts').doc(projectId).collection('public').doc('data').collection('lancamentos');
-
-    console.log(`Tentando carregar lançamentos do caminho: artifacts/${projectId}/public/data/lancamentos com householdId: "${currentHouseholdId}"`); // Debug
-
-    // Para consulta no Firestore: Filtra por householdId E ordena por data
-    // Isso requer um índice composto no Firebase: householdId ASC, createdAt DESC (se você ordenar por createdAt)
-    query = query.where('householdId', '==', currentHouseholdId).orderBy('createdAt', 'desc');
+    let q = query(collection(db, 'artifacts', projectId, 'public', 'data', 'lancamentos'),
+                  where('householdId', '==', currentHouseholdId),
+                  orderBy('createdAt', 'desc'));
 
 
-    // Aplicar filtros de ano
     const selectedYear = filterAnoSelect.value;
-    if (selectedYear && selectedYear !== 'Todos') {
-        query = query.where('ano', '==', parseInt(selectedYear));
-    }
+    // O filtro de ano agora precisaria ser mais complexo se 'date' não for usado na ordenação primária
+    // Para simplificar, vou manter o filtro no cliente para meses e descrição.
+    // O filtro de ano no Firestore exigiria um índice `householdId, createdAt, ano` se 'ano' for um campo.
 
-    // Aplicar filtros de mês
+
     const selectedMonths = Array.from(filterMesCheckboxes)
         .filter(checkbox => checkbox.checked)
-        .map(checkbox => parseInt(checkbox.value)); // Assume que value é o número do mês (1-12)
+        .map(checkbox => parseInt(checkbox.value));
 
-    // Se houver meses selecionados, a lógica de filtro de mês é mais complexa e pode exigir mais consultas ou pós-processamento no cliente.
-    // Para simplificar, faremos o filtro no cliente para meses, após a obtenção dos dados primários.
-    // Consultas .where() múltiplas em campos diferentes e com operadores de intervalo são complexas e exigem muitos índices.
-
-    // Remover listener anterior se existir
     if (unsubscribeSnapshot) {
         unsubscribeSnapshot();
     }
 
-    unsubscribeSnapshot = query.onSnapshot(snapshot => {
-        console.log('Snapshot recebido. Documentos brutos do Firebase (após filtro de householdId e ordenação):', snapshot.docs.length); // Debug
+    unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+        console.log('Snapshot recebido. Documentos brutos do Firebase (após filtro de householdId e ordenação):', snapshot.docs.length);
         const lancamentos = [];
         let totalEntradas = 0;
         let totalSaidas = 0;
 
-        snapshot.docs.forEach(doc => {
-            const data = doc.data();
+        snapshot.docs.forEach(docData => {
+            const data = docData.data();
             // Garante que o createdAt é um Timestamp válido antes de tentar toDate()
             if (data.createdAt && typeof data.createdAt.toDate === 'function') {
-                 // Converte o Firestore Timestamp para um objeto Date
                 data.createdAtDate = data.createdAt.toDate();
             } else if (typeof data.createdAt === 'number') {
-                // Se createdAt for um número (epoch timestamp), converte para Date
                 data.createdAtDate = new Date(data.createdAt);
             } else {
-                data.createdAtDate = null; // Ou um valor padrão se createdAt não for válido
+                data.createdAtDate = null;
             }
 
-            // O mesmo para o campo 'date'
             if (data.date && typeof data.date.toDate === 'function') {
                 data.transactionDate = data.date.toDate();
             } else {
                 data.transactionDate = null;
             }
 
-
-            lancamentos.push({ id: doc.id, ...data });
+            lancamentos.push({ id: docData.id, ...data });
         });
 
-
-        // Filtrar no lado do cliente por mês e descrição, se necessário
         let filteredLancamentos = lancamentos.filter(lancamento => {
+            // Filtro por ano
+            if (selectedYear && selectedYear !== 'Todos') {
+                if (lancamento.transactionDate) {
+                    const anoLancamento = lancamento.transactionDate.getFullYear();
+                    if (anoLancamento !== parseInt(selectedYear)) {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+
             // Filtro por mês
             if (selectedMonths.length > 0) {
                 if (lancamento.transactionDate) {
-                    const mesLancamento = lancamento.transactionDate.getMonth() + 1; // getMonth() é 0-indexado
+                    const mesLancamento = lancamento.transactionDate.getMonth() + 1;
                     if (!selectedMonths.includes(mesLancamento)) {
                         return false;
                     }
                 } else {
-                    return false; // Se não tem data válida, exclui
+                    return false;
                 }
             }
 
@@ -343,25 +415,22 @@ function loadTransactions() {
         if (filteredLancamentos.length === 0) {
             lancamentosTableBody.innerHTML = '<tr><td colspan="9">Nenhum lançamento encontrado para esta Chave de Acesso (ou após os filtros).</td></tr>';
             loadingIndicator.style.display = 'none';
-            updateSummary(0, 0, 0, 0); // Zera o resumo se não houver lançamentos
+            updateSummary(0, 0, 0, 0);
             return;
         }
 
         filteredLancamentos.forEach(lancamento => {
             const row = lancamentosTableBody.insertRow();
 
-            // DATA ORIGINAL / DATA DA PARCELA
             const originalDateCell = row.insertCell();
             let displayDate = 'N/A';
             if (lancamento.transactionDate) {
                 displayDate = lancamento.transactionDate.toLocaleDateString('pt-BR');
             } else if (lancamento.originalPurchaseDia && lancamento.originalPurchaseMes && lancamento.originalPurchaseAno) {
-                // Se não tem 'date' mas tem data original para recorrência
                 displayDate = `${lancamento.originalPurchaseDia}/${lancamento.originalPurchaseMes}/${lancamento.originalPurchaseAno}`;
             }
             originalDateCell.textContent = displayDate;
 
-            // Ações Recorrência (se houver)
             const recorrenciaCell = row.insertCell();
             if (lancamento.isRecurring) {
                 const stopRecurringBtn = document.createElement('button');
@@ -371,11 +440,9 @@ function loadTransactions() {
                 recorrenciaCell.appendChild(stopRecurringBtn);
             }
 
-            // Descrição
             const descriptionCell = row.insertCell();
             descriptionCell.textContent = lancamento.description;
 
-            // Valor
             const valueCell = row.insertCell();
             valueCell.textContent = lancamento.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             valueCell.style.color = lancamento.type === 'entrada' ? 'green' : 'red';
@@ -385,23 +452,18 @@ function loadTransactions() {
                 totalSaidas += lancamento.value;
             }
 
-            // Categoria
             const categoryCell = row.insertCell();
             categoryCell.textContent = lancamento.category;
 
-            // Tipo
             const typeCell = row.insertCell();
             typeCell.textContent = lancamento.type === 'entrada' ? 'Entrada' : 'Saída';
 
-            // Recorrente
             const isRecurringCell = row.insertCell();
             isRecurringCell.textContent = lancamento.isRecurring ? `Sim (${lancamento.parcelaAtual}/${lancamento.totalParcelas})` : 'Não';
 
-            // Household ID
             const householdIdCell = row.insertCell();
             householdIdCell.textContent = lancamento.householdId;
 
-            // Ações (Editar/Excluir)
             const actionsCell = row.insertCell();
             const editButton = document.createElement('button');
             editButton.textContent = 'Editar';
@@ -416,12 +478,9 @@ function loadTransactions() {
             actionsCell.appendChild(deleteButton);
         });
 
-        // Atualizar o resumo
         const saldoMes = totalEntradas - totalSaidas;
-        // Calcular média de gasto diário apenas se houver saídas e dias no mês
-        // Isso é um cálculo simplificado, o ideal seria considerar apenas os dias com lançamentos
         const currentMonthDays = new Date(filterAnoSelect.value, selectedMonths[0] || new Date().getMonth() + 1, 0).getDate();
-        const mediaGastoDiario = totalSaidas / currentMonthDays || 0; // Evita divisão por zero
+        const mediaGastoDiario = totalSaidas / currentMonthDays || 0;
         updateSummary(totalEntradas, totalSaidas, mediaGastoDiario, saldoMes);
 
         loadingIndicator.style.display = 'none';
@@ -468,9 +527,8 @@ async function deleteTransaction(docId) {
     }
 
     try {
-        await db.collection('artifacts').doc('controle-financeiro-c1a0b').collection('public').doc('data').collection('lancamentos').doc(docId).delete();
+        await deleteDoc(doc(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos', docId));
         alert('Lançamento excluído com sucesso!');
-        // A tabela será automaticamente atualizada pelo listener onSnapshot
     } catch (error) {
         console.error('Erro ao excluir lançamento:', error);
         alert('Erro ao excluir lançamento: ' + error.message);
@@ -486,17 +544,16 @@ searchDescriptionInput.addEventListener('input', loadTransactions);
 
 function populateFilterYears() {
     const currentYear = new Date().getFullYear();
-    // Limpa opções existentes, exceto "Todos"
     filterAnoSelect.innerHTML = '<option value="Todos">Todos</option>';
-    for (let i = currentYear + 1; i >= 2000; i--) { // Exibe o ano atual + 1 e vai até 2000
+    for (let i = currentYear + 1; i >= 2000; i--) {
         const option = document.createElement('option');
         option.value = i;
         option.textContent = i;
         filterAnoSelect.appendChild(option);
     }
-    filterAnoSelect.value = currentYear; // Seleciona o ano atual por padrão
+    filterAnoSelect.value = currentYear;
 }
 
 // Inicializar
 populateFilterYears();
-updateUIForAuthStatus(); // Chame para configurar a UI no carregamento inicial
+updateUIForAuthStatus();

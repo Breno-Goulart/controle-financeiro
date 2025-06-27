@@ -145,7 +145,7 @@
         <div class="mb-8 p-6 bg-yellow-50 rounded-xl border border-yellow-200 shadow-md">
             <h2 class="text-xl md:text-2xl font-bold mb-4 text-yellow-800">Gerenciar ID da Família/Casa</h2>
             <div class="flex flex-col md:flex-row gap-4">
-                <input type="text" id="joinHouseholdIdInput" placeholder="ID da Família/Casa atual" class="flex-grow p-2.5 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 shadow-sm transition-colors duration-200" required>
+                <input type="text" id="joinHouseholdIdInput" placeholder="ID da Família/Casa atual" class="flex-grow p-2.5 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 shadow-sm transition-colors duration-200">
                 <button id="setHouseholdIdBtn" class="bg-yellow-600 text-white p-2.5 rounded-lg hover:bg-yellow-700 transition-colors duration-300 shadow-md flex-shrink-0">Definir ID</button>
             </div>
             <p class="text-sm text-gray-600 mt-2">Use este ID para compartilhar lançamentos com outros membros da família ou para organizar diferentes grupos. O ID acima é o ID ativo.</p>
@@ -161,19 +161,19 @@
                     </div>
                     <div class="flex flex-col">
                         <label for="mes" class="block text-sm font-bold text-gray-700 mb-1">Mês</label>
-                        <input type="number" id="mes" min="1" max="12" placeholder="Mês" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                        <input type="number" id="mes" min="1" max="12" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" placeholder="Mês" required>
                     </div>
                     <div class="flex flex-col">
                         <label for="ano" class="block text-sm font-bold text-gray-700 mb-1">Ano</label>
-                        <input type="number" id="ano" min="2000" max="2100" placeholder="Ano" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                        <input type="number" id="ano" min="2000" max="2100" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" placeholder="Ano" required>
                     </div>
                     <div class="flex flex-col md:col-span-2">
                         <label for="descricao" class="block text-sm font-bold text-gray-700 mb-1">Descrição</label>
-                        <input type="text" id="descricao" placeholder="Ex: Aluguel, Salário, Conta de Luz" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                        <input type="text" id="descricao" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" placeholder="Ex: Conta de luz, Salário" required>
                     </div>
                     <div class="flex flex-col">
                         <label for="valor" class="block text-sm font-bold text-gray-700 mb-1">Valor</label>
-                        <input type="number" id="valor" step="0.01" placeholder="0.00" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                        <input type="number" id="valor" step="0.01" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" placeholder="0.00" required>
                     </div>
                     <div class="flex flex-col">
                         <label for="categoria" class="block text-sm font-bold text-gray-700 mb-1">Categoria</label>
@@ -192,119 +192,183 @@
                             <option value="Outros">Outros</option>
                         </select>
                     </div>
-                </div>
-
-                <div id="parcelaFields" class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200 hidden">
-                    <h3 class="text-md font-bold mb-2 text-blue-700">Detalhes de Parcelamento</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="flex flex-col">
-                            <label for="parcelaAtual" class="block text-sm font-bold text-gray-700 mb-1">Parcela Atual</label>
-                            <select id="parcelaAtual" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200">
-                                </select>
-                        </div>
-                        <div class="flex flex-col">
-                            <label for="totalParcelas" class="block text-sm font-bold text-gray-700 mb-1">Total de Parcelas</label>
-                            <select id="totalParcelas" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200">
-                                </select>
+                    <div class="flex flex-col xl:col-span-1">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Tipo</label>
+                        <div class="flex items-center space-x-4 h-full">
+                            <div class="flex items-center">
+                                <input type="radio" id="tipoEntrada" name="tipo" value="entrada" class="form-radio text-green-500" required>
+                                <label for="tipoEntrada" class="ml-2 text-gray-700">Entrada</label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="radio" id="tipoSaida" name="tipo" value="saida" class="form-radio text-red-500" required>
+                                <label for="tipoSaida" class="ml-2 text-gray-700">Saída</label>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-start gap-6 mt-6">
-                    <div class="flex items-center">
-                        <input type="radio" id="tipoEntrada" name="tipo" value="entrada" class="form-radio text-green-500 h-4 w-4" checked>
-                        <label for="tipoEntrada" class="ml-2 text-gray-700 font-medium">Entrada</label>
+                <div id="parcelaFieldsDiv" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div class="flex flex-col">
+                        <label for="parcelaAtual" class="block text-sm font-bold text-gray-700 mb-1">Parcela Atual</label>
+                        <select id="parcelaAtual" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200">
+                            <option value="0">Não aplicável</option>
+                            <script>
+                                for (let i = 1; i <= 12; i++) {
+                                    document.write(`<option value="${i}">${i}</option>`);
+                                }
+                            </script>
+                        </select>
                     </div>
-                    <div class="flex items-center">
-                        <input type="radio" id="tipoSaida" name="tipo" value="saida" class="form-radio text-red-500 h-4 w-4">
-                        <label for="tipoSaida" class="ml-2 text-gray-700 font-medium">Saída</label>
+                    <div class="flex flex-col">
+                        <label for="totalParcelas" class="block text-sm font-bold text-gray-700 mb-1">Total de Parcelas</label>
+                        <select id="totalParcelas" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200">
+                            <option value="0">Não aplicável</option>
+                            <script>
+                                for (let i = 1; i <= 12; i++) {
+                                    document.write(`<option value="${i}">${i}</option>`);
+                                }
+                            </script>
+                        </select>
                     </div>
-                    <div class="flex items-center ml-auto"> <input type="checkbox" id="isRecurring" class="form-checkbox h-4 w-4 text-blue-600 rounded">
-                        <label for="isRecurring" class="ml-2 text-gray-700 font-medium">Recorrente</label>
+                    <div class="flex items-center mt-2 md:col-span-2">
+                        <input type="checkbox" id="isRecurringCheckbox" class="form-checkbox text-blue-500 h-5 w-5">
+                        <label for="isRecurringCheckbox" class="ml-2 text-gray-700 font-medium">Lançamento Recorrente (mensal)</label>
                     </div>
                 </div>
-                
-                <div class="mt-6 flex justify-center">
-                    <button type="submit" id="addLancamentoBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-all duration-300 ease-in-out transform hover:scale-105 shadow-lg flex items-center justify-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
+
+                <div class="flex justify-center mt-6">
+                    <button type="submit" id="addGastoBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:-translate-y-1">
                         Adicionar Lançamento
                     </button>
                 </div>
             </form>
         </div>
 
-        <div class="mb-8 p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 shadow-lg transform hover:scale-[1.005] transition-transform duration-200 ease-out">
-            <h2 class="text-2xl md:text-3xl font-bold mb-5 text-green-800">Resumo Financeiro Mensal</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                <div class="p-4 bg-white rounded-lg shadow-md border border-gray-200">
-                    <p class="text-lg text-gray-600">Total de Entradas:</p>
-                    <p id="totalEntradas" class="text-3xl font-bold text-income mt-1">R$ 0.00</p>
-                </div>
-                <div class="p-4 bg-white rounded-lg shadow-md border border-gray-200">
-                    <p class="text-lg text-gray-600">Total de Saídas:</p>
-                    <p id="totalSaidas" class="text-3xl font-bold text-expense mt-1">R$ 0.00</p>
-                </div>
-                <div class="p-4 bg-white rounded-lg shadow-md border border-gray-200">
-                    <p id="mediaDiaria" class="text-3xl font-bold text-gray-800 mt-1">R$ 0.00</p>
-                </div>
+        <div class="summary-cards grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="summary-card p-6 bg-white rounded-xl shadow-md border border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Total de Entradas</h3>
+                <p id="totalEntradas" class="text-2xl font-bold text-income">R$ 0,00</p>
             </div>
-            <div id="saldoStatusBar" class="w-full bg-gray-200 rounded-full h-4 mt-6">
-                <div id="saldoStatus" class="h-full rounded-full transition-all duration-500 ease-in-out" style="width: 50%; background-color: #6366F1;"></div>
+            <div class="summary-card p-6 bg-white rounded-xl shadow-md border border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Total de Saídas</h3>
+                <p id="totalSaidas" class="text-2xl font-bold text-expense">R$ 0,00</p>
             </div>
-            <p id="saldoStatusText" class="text-center text-gray-700 font-semibold mt-2">Saldo: R$ 0.00</p>
-        </div>
-
-        <div class="mb-8 p-6 bg-purple-50 rounded-xl border border-purple-200 shadow-lg">
-            <h2 class="text-2xl md:text-3xl font-bold mb-5 text-purple-800">Filtrar Lançamentos</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="flex flex-col">
-                    <label for="filterAno" class="block text-sm font-bold text-gray-700 mb-1">Filtrar por Ano</label>
-                    <select id="filterAno" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
-                        </select>
-                </div>
-                <div class="flex flex-col">
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Filtrar por Mês</label>
-                    <div id="filterMesGroup" class="grid grid-cols-3 gap-2 bg-white p-3 rounded-lg border border-gray-300 shadow-sm">
-                        <label class="flex items-center col-span-3">
-                            <input type="checkbox" id="filterMesAll" class="form-checkbox h-4 w-4 text-purple-600 rounded">
-                            <span class="ml-2 text-gray-700 font-medium">Todos os Meses</span>
-                        </label>
-                        </div>
-                </div>
+            <div class="summary-card p-6 bg-white rounded-xl shadow-md border border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Média Diária</h3>
+                <p id="mediaDiaria" class="text-2xl font-bold text-gray-800">R$ 0,00</p>
             </div>
-            <div class="mt-4">
-                <label for="searchBar" class="block text-sm font-bold text-gray-700 mb-1">Buscar Lançamentos</label>
-                <input type="text" id="searchBar" placeholder="Buscar por descrição ou categoria..." class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+            <div class="summary-card p-6 bg-white rounded-xl shadow-md border border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">Saldo do Mês</h3>
+                <p id="saldoMes" class="text-2xl font-bold text-gray-800">R$ 0,00</p>
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-xl shadow-2xl border-4 border-blue-300 overflow-x-auto min-h-[300px]">
+        <div class="mb-8 p-6 bg-white rounded-xl shadow-md border border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-700 mb-2">Status do Saldo</h3>
+            <div class="w-full bg-gray-200 rounded-full h-4 mb-2">
+                <div id="saldoStatusBar" class="bg-green-500 h-4 rounded-full transition-all duration-500" style="width: 50%;"></div>
+            </div>
+            <p id="saldoStatusText" class="text-md font-medium text-gray-600 text-center">Calculando...</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 p-6 bg-purple-50 rounded-xl border border-purple-200 shadow-md">
+            <div class="md:col-span-1 flex flex-col">
+                <label for="filterAnoSelect" class="block text-sm font-bold text-gray-700 mb-2">Filtrar por Ano:</label>
+                <select id="filterAnoSelect" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+                    </select>
+            </div>
+            <div class="md:col-span-2">
+                <label class="block text-sm font-bold text-gray-700 mb-2">Filtrar por Mês:</label>
+                <div id="filterMesGroup" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2 p-3 bg-white rounded-lg border border-gray-300 shadow-sm">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMesAll" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMesAll" class="ml-2 text-gray-700 font-medium">Todos os Meses</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes1" value="1" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes1" class="ml-2 text-gray-700">Janeiro</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes2" value="2" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes2" class="ml-2 text-gray-700">Fevereiro</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes3" value="3" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes3" class="ml-2 text-gray-700">Março</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes4" value="4" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes4" class="ml-2 text-gray-700">Abril</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes5" value="5" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes5" class="ml-2 text-gray-700">Maio</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes6" value="6" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes6" class="ml-2 text-gray-700">Junho</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes7" value="7" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes7" class="ml-2 text-gray-700">Julho</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes8" value="8" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes8" class="ml-2 text-gray-700">Agosto</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes9" value="9" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes9" class="ml-2 text-gray-700">Setembro</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes10" value="10" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes10" class="ml-2 text-gray-700">Outubro</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes11" value="11" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes11" class="ml-2 text-gray-700">Novembro</label>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="checkbox" id="filterMes12" value="12" class="form-checkbox text-purple-600 h-5 w-5">
+                        <label for="filterMes12" class="ml-2 text-gray-700">Dezembro</label>
+                    </div>
+                </div>
+            </div>
+            <div class="md:col-span-3">
+                <label for="searchBarInput" class="block text-sm font-bold text-gray-700 mb-2">Buscar Lançamentos:</label>
+                <input type="text" id="searchBarInput" placeholder="Buscar por descrição ou categoria..." class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+            </div>
+        </div>
+        
+        <div class="mb-8 p-6 bg-white rounded-xl shadow-md border border-gray-200 overflow-x-auto">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Lançamentos Detalhados</h2>
-                <button id="deleteSelectedBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 shadow-md flex items-center gap-2" style="display: none;">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    Excluir Selecionados (<span id="selectedCount">0</span>)
-                </button>
+                <h2 class="text-2xl font-bold text-gray-800">Meus Lançamentos</h2>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="selectAllCheckbox" class="form-checkbox h-5 w-5 text-red-600">
+                        <label for="selectAllCheckbox" class="ml-2 text-gray-700">Selecionar Todos</label>
+                    </div>
+                    <button id="deleteSelectedBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 shadow-md">
+                        Excluir Selecionados
+                    </button>
+                </div>
             </div>
             
-            <p id="noExpensesMessage" class="text-center text-gray-500 text-lg mt-10" style="display: none;">Nenhum lançamento encontrado para o período ou filtro selecionado.</p>
-            
-            <table class="min-w-full divide-y divide-gray-200 mt-4">
+            <p id="noExpensesMessage" class="text-center text-gray-500 italic p-4 hidden">Nenhum lançamento encontrado para o mês e ano selecionados. Adicione um novo lançamento!</p>
+
+            <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <input type="checkbox" id="selectAllCheckbox" class="form-checkbox h-4 w-4 text-blue-600 rounded">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <input type="checkbox" id="headerSelectAllCheckbox" class="form-checkbox h-4 w-4 text-blue-600">
                         </th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parcela</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
                     </tr>
                 </thead>
                 <tbody id="gastosTableBody" class="bg-white divide-y divide-gray-200">
@@ -315,16 +379,16 @@
 
     <div id="messageBoxOverlay" class="message-box-overlay hidden">
         <div class="message-box-content">
-            <h3 id="messageBoxTitle" class="text-xl font-bold mb-4 text-gray-800">Título</h3>
-            <p id="messageBoxMessage" class="text-gray-700 mb-6">Mensagem aqui.</p>
-            <button id="messageBoxOkBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">OK</button>
+            <h3 id="messageBoxTitle"></h3>
+            <p id="messageBoxMessage"></p>
+            <button id="messageBoxOkBtn">OK</button>
         </div>
     </div>
 
     <div id="confirmBoxOverlay" class="confirm-box-overlay hidden">
         <div class="confirm-box-content">
-            <h3 id="confirmBoxTitle" class="text-xl font-bold mb-4 text-gray-800">Confirmar</h3>
-            <p id="confirmBoxMessage" class="text-gray-700 mb-6">Você tem certeza?</p>
+            <h3 id="confirmBoxTitle"></h3>
+            <p id="confirmBoxMessage"></p>
             <div class="confirm-box-buttons">
                 <button id="confirmBoxYesBtn" class="confirm-yes">Sim</button>
                 <button id="confirmBoxNoBtn" class="confirm-no">Não</button>
@@ -334,18 +398,32 @@
 
     <div id="stopRecurringMonthsModalOverlay" class="stop-recurring-modal-overlay hidden">
         <div class="stop-recurring-modal-content">
-            <h3 class="text-xl font-bold mb-4 text-gray-800">Parar Lançamento Recorrente</h3>
-            <p class="text-gray-700 mb-6">Selecione a partir de qual mês o lançamento recorrente deve parar, ou meses específicos.</p>
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Parar Recorrência/Parcelamento</h3>
+            <p class="text-gray-700 mb-4">Escolha a partir de qual mês deseja parar a recorrência/parcelamento para o lançamento:</p>
             
             <div class="flex items-center mb-4">
-                <input type="checkbox" id="stopFromCurrentMonthCheckbox" class="form-checkbox h-4 w-4 text-blue-600 rounded">
-                <label for="stopFromCurrentMonthCheckbox" class="ml-2 text-gray-700 font-medium">Parar a partir de <span id="currentMonthAndYearSpan" class="font-bold"></span></label>
+                <input type="checkbox" id="stopFromCurrentMonthCheckbox" class="form-checkbox text-indigo-600 h-5 w-5">
+                <label for="stopFromCurrentMonthCheckbox" class="ml-2 text-gray-700 font-medium">Parar a partir do mês atual (<span id="currentMonthAndYearSpan"></span>)</label>
             </div>
 
-            <div id="specificMonthsSelectionDiv" class="grid grid-cols-3 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-300 shadow-sm mt-4">
-                <p class="col-span-3 text-sm font-bold text-gray-700 mb-2">Ou selecione meses específicos para parar:</p>
-                <select id="stopRecurringYearSelect" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200">
+            <div id="specificMonthsSelectionDiv" class="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <h4 class="text-md font-semibold text-gray-700 mb-2">Ou selecione um mês específico:</h4>
+                <select id="stopRecurringYearSelect" class="w-full p-2.5 mb-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-colors duration-200">
                     </select>
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth1" value="1" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth1" class="ml-2 text-gray-700">Jan</label></div>
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth2" value="2" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth2" class="ml-2 text-gray-700">Fev</label></div>
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth3" value="3" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth3" class="ml-2 text-gray-700">Mar</label></div>
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth4" value="4" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth4" class="ml-2 text-gray-700">Abr</label></div>
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth5" value="5" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth5" class="ml-2 text-gray-700">Mai</label></div>
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth6" value="6" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth6" class="ml-2 text-gray-700">Jun</label></div>
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth7" value="7" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth7" class="ml-2 text-gray-700">Jul</label></div>
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth8" value="8" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth8" class="ml-2 text-gray-700">Ago</label></div>
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth9" value="9" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth9" class="ml-2 text-gray-700">Set</label></div>
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth10" value="10" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth10" class="ml-2 text-gray-700">Out</label></div>
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth11" value="11" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth11" class="ml-2 text-gray-700">Nov</label></div>
+                    <div class="flex items-center"><input type="checkbox" id="stopMonth12" value="12" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth12" class="ml-2 text-gray-700">Dez</label></div>
+                </div>
             </div>
 
             <div class="stop-recurring-modal-buttons mt-6">
@@ -367,6 +445,6 @@
         </div>
     </div>
 
-    <script src="./js/app.js" type="module"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>

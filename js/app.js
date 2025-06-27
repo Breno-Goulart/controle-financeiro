@@ -1,2257 +1,494 @@
-// Importa as funções necessárias do Firebase SDK (versões modulares padrão)
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import {
-    getAuth,
-    signInAnonymously,
-    signInWithCustomToken,
-    onAuthStateChanged,
-    GoogleAuthProvider, // Adicionado para autenticação Google
-    signInWithPopup,    // Adicionado para autenticação Google
-    signOut,            // Adicionado para logout
-    signInWithEmailAndPassword, // Adicionado para login com email/senha
-    createUserWithEmailAndPassword, // Adicionado para registro com email/senha
-    sendPasswordResetEmail // Adicionado para redefinição de senha
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import {
-    getFirestore,
-    collection,
-    onSnapshot,
-    addDoc,
-    setDoc,
-    doc,
-    deleteDoc,
-    query,
-    where,
-    orderBy,
-    getDocs,
-    writeBatch, // Adicionado para operações em lote
-    serverTimestamp // Adicionado para timestamps do servidor
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-// Credenciais do Firebase (certifique-se de que correspondem às suas configurações do Firebase Project)
-const firebaseConfig = {
-    apiKey: "AIzaSyD998NH9Vco8Yfk-7n3XgMjLW-LkQkAgLA", // Sua chave de API
-    authDomain: "controle-financeiro-c1a0b.firebaseapp.com",
-    projectId: "controle-financeiro-c1a0b",
-    storageBucket: "controle-financeiro-c1a0b.firebaseapp.com",
-    messagingSenderId: "471645962387",
-    appId: "1:471645962387:web:fd500fdeb62475596c0d66"
-};
-
-// Variáveis globais do ambiente Canvas/CodePen (usando o projectId como appId para esta demonstração)
-const appId = firebaseConfig.projectId;
-// __initial_auth_token é uma variável injetada pelo ambiente Canvas/Google
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-let app; // Instância do Firebase App
-let db;  // Instância do Firestore
-let auth; // Instância do Auth
-let userId = null; // ID de autenticação individual do utilizador
-let currentHouseholdId = null; // O ID do grupo/família que está a ser usado para os lançamentos
-let lancamentosCollection; // Referência à coleção Firestore para lançamentos
-let isAuthReady = false; // Flag para indicar se a autenticação foi concluída
-
-const RECURRING_MONTHS_AHEAD = 11; // Gerar para o mês atual + 11 meses à frente (total de 12)
-
-// Referências aos elementos do DOM (serão atribuídas em initializeUI)
-let firebaseStatusDiv; // Adicionado
-let authModal;         // Adicionado
-let loginForm;         // Adicionado
-let registerForm;      // Adicionado
-let showRegisterLink;  // Adicionado
-let showLoginLink;     // Adicionado
-let logoutButton;      // Adicionado
-let dashboardSection;  // Adicionado
-let loggedUserNameSpan; // Adicionado
-let googleLoginBtn;     // Adicionado
-let forgotPasswordLink; // Adicionado
-
-
-let lancamentoForm;
-let diaInput;
-let mesInput;
-let anoInput;
-let descricaoInput;
-let valorInput;
-let categoriaSelect;
-let tipoEntradaRadio;
-let tipoSaidaRadio;
-let addGastoBtn;
-let gastosTableBody;
-let totalEntradasSpan;
-let totalSaidasSpan;
-let mediaDiariaSpan;
-let saldoMesSpan;
-
-// Elementos para o filtro de mês e ano
-let filterMesGroup; // A div que contém os checkboxes de mês
-let filterMesAll; // Checkbox "Todos os Meses"
-let monthFilterCheckboxes; // NodeList dos checkboxes individuais de mês
-let filterAnoSelect; // Select para filtrar por ano
-
-// Mensagem de "nenhum lançamento"
-let noExpensesMessage;
-
-// Campos de parcelamento
-let parcelaAtualSelect;
-let totalParcelasSelect;
-let parcelaFieldsDiv;
-
-// Elementos para seleção e exclusão em massa
-let userIdDisplay;
-let joinHouseholdIdInput;
-let setHouseholdIdBtn;
-let selectAllCheckbox;
-let deleteSelectedBtn;
-let selectedLancamentosIds = new Set(); // Conjunto para armazenar IDs de lançamentos selecionados
-
-// Campo de cobrança recorrente
-let isRecurringCheckbox;
-
-// Variável para armazenar os lançamentos do Firestore (cache local)
-let lancamentos = [];
-
-// Elementos do resumo redesenhado
-let saldoStatusBar;
-let saldoStatusText;
-
-// Referências para o modal de parar recorrência
-let stopRecurringMonthsModalOverlay;
-let stopFromCurrentMonthCheckbox;
-let currentMonthAndYearSpan;
-let specificMonthsSelectionDiv;
-let monthStopCheckboxes; // NodeList dos checkboxes de mês dentro do modal de parada de recorrência
-let stopRecurringYearSelect;
-let cancelStopRecurringBtn;
-let confirmStopRecurringBtn;
-let currentRecurringGroupId = null; // Para armazenar o ID do grupo de recorrência que está a ser parado
-
-// Variável para armazenar a data original de uma série de parcelas
-let originalInstallmentDate = {
-    day: null,
-    month: null,
-    year: null
-};
-
-// Campo de busca
-let searchBarInput;
-
-// Elementos para feedback de categorização automática
-let categoryLoadingIndicator;
-
-// Elementos para o modal de escolha de edição recorrente/parcelada
-let editRecurringChoiceModalOverlay;
-let editRecurringChoiceMessage;
-let applyToThisBtn;
-let applyToFutureBtn;
-let cancelEditRecurringBtn;
-let pendingEditData = null; // Objeto para armazenar o estado da edição antes de abrir o modal de escolha
-
-/**
- * Exibe uma caixa de mensagem modal personalizada.
- * @param {string} title O título da mensagem.
- * @param {string} message O conteúdo da mensagem.
- */
-function showMessageBox(title, message) {
-    const messageBoxOverlay = document.getElementById('messageBoxOverlay');
-    const messageBoxTitle = document.getElementById('messageBoxTitle');
-    const messageBoxMessage = document.getElementById('messageBoxMessage');
-    const messageBoxOkBtn = document.getElementById('messageBoxOkBtn');
-
-    if (!messageBoxOverlay || !messageBoxTitle || !messageBoxMessage || !messageBoxOkBtn) {
-        console.error("Elementos do modal de mensagem não encontrados. Não é possível exibir a mensagem.");
-        alert(`${title}\n\n${message}`); // Fallback para alert
-        return;
-    }
-
-    messageBoxTitle.textContent = title;
-    messageBoxMessage.textContent = message;
-    messageBoxOverlay.classList.remove('hidden');
-
-    // Remove qualquer listener anterior para evitar múltiplas execuções
-    const oldBtn = messageBoxOkBtn.cloneNode(true);
-    messageBoxOkBtn.parentNode.replaceChild(oldBtn, messageBoxOkBtn);
-    document.getElementById('messageBoxOkBtn').addEventListener('click', () => {
-        messageBoxOverlay.classList.add('hidden');
-    });
-}
-
-/**
- * Exibe uma caixa de confirmação modal personalizada.
- * @param {string} title O título da confirmação.
- * @param {string} message O conteúdo da confirmação.
- * @returns {Promise<boolean>} Uma promessa que resolve para true se 'Sim' for clicado, false caso contrário.
- */
-function showConfirmBox(title, message) {
-    return new Promise((resolve) => {
-        const confirmBoxOverlay = document.getElementById('confirmBoxOverlay');
-        const confirmBoxTitle = document.getElementById('confirmBoxTitle');
-        const confirmBoxMessage = document.getElementById('confirmBoxMessage');
-        const confirmBoxYesBtn = document.getElementById('confirmBoxYesBtn');
-        const confirmBoxNoBtn = document.getElementById('confirmBoxNoBtn');
-
-        if (!confirmBoxOverlay || !confirmBoxTitle || !confirmBoxMessage || !confirmBoxYesBtn || !confirmBoxNoBtn) {
-            console.error("Elementos do modal de confirmação não encontrados. Não é possível exibir a confirmação.");
-            resolve(confirm(`${title}\n\n${message}`)); // Fallback para confirm
-            return;
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu Controle Financeiro Pessoal</title>
+    <!-- Link para a fonte Inter do Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Link para o Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos personalizados para cores de texto */
+        .text-income {
+            color: #10B981; /* Verde esmeralda */
+        }
+        .text-expense {
+            color: #EF4444; /* Vermelho */
+        }
+        /* Estilo para focar os inputs/selects (opcional, pode ser ajustado com Tailwind) */
+        input:focus, select:focus {
+            outline: none;
+            border-color: #6366F1; /* Cor roxa do Tailwind para foco */
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.5);
+        }
+        /* Esconde as setas de input number em navegadores específicos, se necessário */
+        /* Chrome, Safari, Edge, Opera */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* Firefox */
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        /* Estilo para o body para usar a fonte Inter e centralizar o conteúdo */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Gradiente de fundo suave para mais cor */
+            background-image: linear-gradient(to bottom right, #e0f2fe, #eef2ff); /* Um azul claro para um lilás muito claro */
+            display: flex;
+            justify-content: center;
+            align-items: center; /* Centraliza verticalmente o conteúdo */
+            min-height: 100vh;
+            padding: 20px; /* Adiciona padding ao body para não colar nas bordas em telas pequenas */
         }
 
-        confirmBoxTitle.textContent = title;
-        confirmBoxMessage.textContent = message;
-        confirmBoxOverlay.classList.remove('hidden');
-
-        // Remove listeners anteriores para evitar múltiplas execuções
-        const oldYesBtn = confirmBoxYesBtn.cloneNode(true);
-        const oldNoBtn = confirmBoxNoBtn.cloneNode(true);
-        confirmBoxYesBtn.parentNode.replaceChild(oldYesBtn, confirmBoxYesBtn);
-        confirmBoxNoBtn.parentNode.replaceChild(oldNoBtn, confirmBoxNoBtn);
-
-        document.getElementById('confirmBoxYesBtn').addEventListener('click', () => {
-            confirmBoxOverlay.classList.add('hidden');
-            resolve(true);
-        });
-
-        document.getElementById('confirmBoxNoBtn').addEventListener('click', () => {
-            confirmBoxOverlay.classList.add('hidden');
-            resolve(false);
-        });
-    });
-}
-
-/**
- * Lida com a mudança no checkbox "Todos os Meses" no filtro.
- * @param {Event} event O objeto do evento de mudança.
- */
-function handleFilterMesAllChange(event) {
-    const isChecked = event.target.checked;
-    monthFilterCheckboxes.forEach(checkbox => {
-        checkbox.checked = isChecked;
-    });
-    // Dispara a atualização do resumo e da renderização após a seleção
-    updateSummary();
-    renderLancamentos();
-}
-
-/**
- * Lida com a mudança em um checkbox de mês individual no filtro.
- * @param {Event} event O objeto do evento de mudança.
- */
-function handleMonthFilterCheckboxChange(event) {
-    updateMonthFilterCheckboxesState(); // Atualiza o estado do "Todos os Meses"
-    // Dispara a atualização do resumo e da renderização
-    updateSummary();
-    renderLancamentos();
-}
-
-/**
- * Atualiza o estado do checkbox "Todos os Meses" (marcado/indeterminado/desmarcado).
- */
-function updateMonthFilterCheckboxesState() {
-    const allMonthCheckboxes = Array.from(monthFilterCheckboxes);
-    const checkedMonthCheckboxes = allMonthCheckboxes.filter(cb => cb.checked);
-
-    if (filterMesAll) {
-        if (checkedMonthCheckboxes.length === 0) {
-            filterMesAll.checked = false;
-            filterMesAll.indeterminate = false;
-        } else if (checkedMonthCheckboxes.length === allMonthCheckboxes.length) {
-            filterMesAll.checked = true;
-            filterMesAll.indeterminate = false;
-        } else {
-            filterMesAll.checked = false;
-            filterMesAll.indeterminate = true;
-        }
-    }
-}
-
-/**
- * Retorna o nome do mês a partir do número.
- * @param {number} monthNumber O número do mês (1-12).
- * @returns {string} O nome do mês em português.
- */
-function getMonthName(monthNumber) {
-    const date = new Date();
-    date.setMonth(monthNumber - 1); // Meses em JS são 0-11
-    return date.toLocaleString('pt-BR', { month: 'long' });
-}
-
-/**
- * Permite a edição de uma célula na tabela.
- * Cria um campo de input/select no lugar do texto para edição.
- * @param {HTMLElement} cellElement O elemento TD clicado para edição.
- */
-async function handleEditCellClick(cellElement) {
-    if (!isAuthReady) {
-        showMessageBox('Aguarde', 'Aplicação ainda carregando, por favor, aguarde.');
-        return;
-    }
-
-    const lancamentoId = cellElement.dataset.id;
-    const field = cellElement.dataset.field;
-    const currentLancamento = lancamentos.find(l => l.id === lancamentoId);
-
-    if (!currentLancamento) return;
-    if (cellElement.querySelector('input, select')) return; // Já está em modo de edição
-
-    let inputElement;
-
-    // Lógica para criar o input/select apropriado
-    if (field === 'dataCompleta') {
-        inputElement = document.createElement('input');
-        inputElement.type = 'date';
-        const editYear = currentLancamento.originalPurchaseAno || currentLancamento.ano;
-        const editMonth = currentLancamento.originalPurchaseMes || currentLancamento.mes;
-        const editDay = currentLancamento.originalPurchaseDia || currentLancamento.dia;
-
-        const fullDateForEdit = new Date(editYear, editMonth - 1, editDay);
-        inputElement.value = isNaN(fullDateForEdit.getTime()) ? '' : fullDateForEdit.toISOString().split('T')[0];
-        inputElement.className = 'w-full p-1 border rounded-md text-sm';
-    } else {
-        const originalValue = currentLancamento[field];
-        switch (field) {
-            case 'descricao':
-                inputElement = document.createElement('input');
-                inputElement.type = 'text';
-                const baseDesc = currentLancamento.descricao.split(' (')[0]; // Pega a descrição base (sem "(X/Y)")
-                inputElement.value = baseDesc;
-                inputElement.className = 'w-full p-1 border rounded-md text-sm';
-                break;
-            case 'valor':
-                inputElement = document.createElement('input');
-                inputElement.type = 'number';
-                inputElement.value = originalValue;
-                inputElement.step = '0.01';
-                inputElement.className = 'w-full p-1 border rounded-md text-sm';
-                break;
-            case 'categoria':
-                inputElement = document.createElement('select');
-                inputElement.className = 'w-full p-1 border rounded-md text-sm';
-                const categories = ["Salário", "Renda Extra", "Investimento", "Alimentação", "Transporte", "Lazer", "Moradia", "Contas", "Educação", "Saúde", "Outros"];
-                categories.forEach(cat => {
-                    const option = document.createElement('option');
-                    option.value = cat;
-                    option.textContent = cat;
-                    if (originalValue === cat) {
-                        option.selected = true;
-                    }
-                    inputElement.appendChild(option);
-                });
-                break;
-            case 'tipo':
-                inputElement = document.createElement('select');
-                inputElement.className = 'w-full p-1 border rounded-md text-sm';
-                const types = [{ value: 'entrada', text: 'Entrada' }, { value: 'saida', text: 'Saída' }];
-                types.forEach(type => {
-                    const option = document.createElement('option');
-                    option.value = type.value;
-                    option.textContent = type.text;
-                    if (originalValue === type.value) {
-                        option.selected = true;
-                    }
-                    inputElement.appendChild(option);
-                });
-                break;
-            case 'parcelaAtual':
-            case 'totalParcelas':
-                inputElement = document.createElement('select');
-                inputElement.className = 'w-full p-1 border rounded-md text-sm';
-                inputElement.innerHTML = '<option value="0">-</option>'; // Opção para "não aplicável"
-                for (let i = 1; i <= 12; i++) {
-                    const option = document.createElement('option');
-                    option.value = i;
-                    option.textContent = i;
-                    if (originalValue === i) {
-                        option.selected = true;
-                    }
-                    inputElement.appendChild(option);
-                }
-                break;
-            default:
-                return; // Não editar campos não mapeados
-        }
-    }
-
-    const originalCellContent = cellElement.innerHTML; // Salva o conteúdo original da célula
-    cellElement.innerHTML = ''; // Limpa a célula
-    cellElement.appendChild(inputElement); // Adiciona o campo de input/select
-    inputElement.focus(); // Coloca o foco no novo campo
-
-    const saveChanges = async () => {
-        let newValue;
-        let updateData = {}; // Objeto para armazenar as atualizações
-        let isValid = true; // Flag para validação
-
-        if (field === 'dataCompleta') {
-            if (!inputElement.value) {
-                showMessageBox('Erro de Validação', 'A data não pode ser vazia. Por favor, selecione uma data.');
-                isValid = false;
-            } else {
-                const dateObj = new Date(inputElement.value + 'T00:00:00');
-                if (isNaN(dateObj.getTime())) {
-                    showMessageBox('Erro de Validação', 'Data inválida. Por favor, selecione uma data válida.');
-                    isValid = false;
-                } else {
-                    updateData.originalPurchaseDia = dateObj.getDate();
-                    updateData.originalPurchaseMes = dateObj.getMonth() + 1;
-                    updateData.originalPurchaseAno = dateObj.getFullYear();
-                    // Atualiza dia, mês, ano do lançamento para refletir a nova data (se não for parcelado)
-                    if (!currentLancamento.parcelaAtual || currentLancamento.parcelaAtual === 0) {
-                        updateData.dia = dateObj.getDate();
-                        updateData.mes = dateObj.getMonth() + 1;
-                        updateData.ano = dateObj.getFullYear();
-                    }
-                }
-            }
-        } else {
-            // Lógica para determinar o novo valor com base no tipo de campo
-            if (inputElement.value === '0' || inputElement.value === '') {
-                newValue = null; // Para '0' ou vazio em selects de parcela
-            } else if (field === 'parcelaAtual' || field === 'totalParcelas') {
-                newValue = parseInt(inputElement.value);
-            } else if (field === 'valor') {
-                newValue = parseFloat(inputElement.value);
-            } else {
-                newValue = inputElement.value.trim();
-            }
-
-            // Validações básicas
-            if (field === 'valor') {
-                if (isNaN(newValue) || (newValue !== null && newValue <= 0)) {
-                    showMessageBox('Erro de Validação', 'Valor inválido. Por favor, insira um número positivo.');
-                    isValid = false;
-                }
-            } else if (field === 'parcelaAtual' || field === 'totalParcelas') {
-                if (newValue !== null && (isNaN(newValue) || newValue < 0)) {
-                    showMessageBox('Erro de Validação', 'Parcela inválida. Por favor, insira um número positivo ou "-".');
-                    isValid = false;
-                }
-            } else if (!newValue && (field === 'descricao' || field === 'categoria' || field === 'tipo')) {
-                showMessageBox('Erro de Validação', 'O campo não pode ser vazio.');
-                isValid = false;
-            }
-            updateData[field] = newValue;
+        /* Estilos para os modais personalizados */
+        .message-box-overlay, .confirm-box-overlay, .stop-recurring-modal-overlay, .edit-recurring-choice-modal-overlay, #auth-modal { /* #auth-modal adicionado aqui */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
 
-        // Se o valor não é válido, exibe mensagem e restaura a célula
-        if (!isValid) {
-            cellElement.innerHTML = originalCellContent;
-            return;
+        .message-box-content, .confirm-box-content, .stop-recurring-modal-content, .edit-recurring-choice-modal-content, #auth-modal > div { /* #auth-modal > div adicionado aqui */
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            transform: translateY(-20px);
+            animation: slideIn 0.3s forwards;
+            position: relative;
         }
 
-        // Verifica se houve mudança real no valor do campo
-        const hasChanged = Object.keys(updateData).some(key => {
-            // Comparação para 'descricao' precisa ser inteligente para lidar com "(X/Y)"
-            if (key === 'descricao' && currentLancamento.parcelaAtual && currentLancamento.totalParcelas) {
-                const currentBaseDesc = currentLancamento.descricao.split(' (')[0];
-                return updateData[key] !== currentBaseDesc;
-            }
-            return updateData[key] !== currentLancamento[key];
-        });
-
-        if (!hasChanged) {
-            cellElement.innerHTML = originalCellContent; // Restaura o conteúdo original
-            return; // Sai da função
-        }
-
-        // Se o valor é válido e houve alguma mudança
-        if (hasChanged) {
-            // Lógica para ajustar outros campos se o tipo mudar
-            if (field === 'tipo') {
-                if (updateData.tipo === 'entrada') {
-                    updateData.parcelaAtual = null;
-                    updateData.totalParcelas = null;
-                    updateData.isRecurring = false;
-                    updateData.recurringGroupId = null;
-                    updateData.originalPurchaseDia = null;
-                    updateData.originalPurchaseMes = null;
-                    updateData.originalPurchaseAno = null;
-                } else if (updateData.tipo === 'saida' && !currentLancamento.isRecurring && currentLancamento.parcelaAtual === null && currentLancamento.totalParcelas === null) {
-                    // Para itens que não eram recorrentes/parcelados e se tornam saída, define como 1/1
-                    updateData.parcelaAtual = 1;
-                    updateData.totalParcelas = 1;
-                    if (!currentLancamento.originalPurchaseDia) {
-                        updateData.originalPurchaseDia = currentLancamento.dia;
-                        updateData.originalPurchaseMes = currentLancamento.mes;
-                        updateData.originalPurchaseAno = currentLancamento.ano;
-                    }
-                }
-            }
-            // Garante que isRecurring seja false se parcelaAtual ou totalParcelas são definidos
-            if (field === 'parcelaAtual' || field === 'totalParcelas') {
-                if (updateData[field] !== null && updateData[field] !== 0) {
-                    updateData.isRecurring = false;
-                    updateData.recurringGroupId = null;
-                } else {
-                    updateData.originalPurchaseDia = null;
-                    updateData.originalPurchaseMes = null;
-                    updateData.originalPurchaseAno = null;
-                }
-            }
-
-            // Se o lançamento é recorrente OU parcelado E o campo editado NÃO É A DATA
-            if ((currentLancamento.isRecurring && currentLancamento.recurringGroupId) || (currentLancamento.parcelaAtual && currentLancamento.totalParcelas && currentLancamento.originalPurchaseAno)) {
-                if (field !== 'dataCompleta') { // A edição da data não deve propagar em massa
-                    pendingEditData = {
-                        id: lancamentoId,
-                        field,
-                        newValue: updateData[field],
-                        currentLancamento: currentLancamento, // Passa o lançamento atual completo
-                        type: currentLancamento.isRecurring ? 'recurring' : 'installment'
-                    };
-                    // Atualiza a mensagem do modal
-                    editRecurringChoiceMessage.textContent = `Este é um lançamento ${pendingEditData.type === 'recurring' ? 'recorrente' : 'parcelado'}. Como você gostaria de aplicar esta edição?`;
-                    editRecurringChoiceModalOverlay.classList.remove('hidden'); // Mostra o modal de escolha
-                } else {
-                    // Se a data for editada, aplica apenas a este lançamento
-                    try {
-                        const docRef = doc(db, lancamentosCollection.path, lancamentoId);
-                        await setDoc(docRef, updateData, { merge: true });
-                        showMessageBox('Sucesso', 'Lançamento atualizado com sucesso!');
-                    } catch (e) {
-                        console.error("Erro ao atualizar documento: ", e);
-                        showMessageBox('Erro', 'Erro ao atualizar lançamento. Por favor, tente novamente.');
-                    }
-                }
-            } else {
-                // Se não for recorrente nem parcelado, aplica diretamente
-                try {
-                    const docRef = doc(db, lancamentosCollection.path, lancamentoId);
-                    await setDoc(docRef, updateData, { merge: true });
-                    showMessageBox('Sucesso', 'Lançamento atualizado com sucesso!');
-                } catch (e) {
-                    console.error("Erro ao atualizar documento: ", e);
-                    showMessageBox('Erro', 'Erro ao atualizar lançamento. Por favor, tente novamente.');
-                }
-            }
-        } else {
-            cellElement.innerHTML = originalCellContent; // Restaura o conteúdo original da célula
-        }
-    };
-
-    // Event listeners para salvar as mudanças ao perder o foco ou pressionar Enter
-    inputElement.addEventListener('blur', saveChanges);
-    inputElement.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            inputElement.blur();
-        }
-    });
-}
-
-/**
- * Aplica a edição a um único lançamento.
- * @param {string} id O ID do lançamento.
- * @param {string} field O campo a ser atualizado.
- * @param {*} newValue O novo valor do campo.
- * @param {object} currentLancamento O objeto do lançamento atual.
- */
-async function applyEditToSingleLancamento(id, field, newValue, currentLancamento) {
-    const updateData = {};
-    // Lógica para ajustar a descrição de parcelas se o campo for 'descricao'
-    if (field === 'descricao' && currentLancamento.parcelaAtual && currentLancamento.totalParcelas) {
-        const installmentPartMatch = currentLancamento.descricao.match(/\s\((\d+\/\d+)\)$/);
-        const installmentPart = installmentPartMatch ? installmentPartMatch[0] : '';
-        updateData[field] = `${newValue.trim()}${installmentPart}`;
-    } else {
-        updateData[field] = newValue;
-    }
-
-    // Lógica para ajustar outros campos se o tipo mudar (copiado da lógica original de saveChanges)
-    if (field === 'tipo') {
-        if (newValue === 'entrada') {
-            updateData.parcelaAtual = null;
-            updateData.totalParcelas = null;
-            updateData.isRecurring = false;
-            updateData.recurringGroupId = null;
-            updateData.originalPurchaseDia = null;
-            updateData.originalPurchaseMes = null;
-            updateData.originalPurchaseAno = null;
-        } else if (newValue === 'saida' && !currentLancamento.isRecurring && currentLancamento.parcelaAtual === null && currentLancamento.totalParcelas === null) {
-            updateData.parcelaAtual = 1;
-            updateData.totalParcelas = 1;
-            if (!currentLancamento.originalPurchaseDia) {
-                updateData.originalPurchaseDia = currentLancamento.dia;
-                updateData.originalPurchaseMes = currentLancamento.mes;
-                updateData.originalPurchaseAno = currentLancamento.ano;
+        @keyframes slideIn {
+            to {
+                transform: translateY(0);
             }
         }
-    }
-    if (field === 'parcelaAtual' || field === 'totalParcelas') {
-        if (newValue !== null && newValue !== 0) {
-            updateData.isRecurring = false;
-            updateData.recurringGroupId = null;
-        } else {
-            updateData.originalPurchaseDia = null;
-            updateData.originalPurchaseMes = null;
-            updateData.originalPurchaseAno = null;
-        }
-    }
-    try {
-        const docRef = doc(db, lancamentosCollection.path, id);
-        await setDoc(docRef, updateData, { merge: true });
-        showMessageBox('Sucesso', 'Lançamento atualizado com sucesso!');
-    } catch (e) {
-        console.error("Erro ao atualizar documento: ", e);
-        showMessageBox('Erro', 'Erro ao atualizar lançamento. Por favor, tente novamente.');
-    }
-}
 
-/**
- * Aplica a edição a todos os lançamentos futuros do mesmo grupo recorrente ou série de parcelas.
- * @param {string} idToUpdate O ID do lançamento que foi editado.
- * @param {string} field O campo a ser atualizado.
- * @param {*} newValue O novo valor do campo.
- * @param {object} baseLancamento O objeto do lançamento base (o que foi editado para iniciar a propagação).
- * @param {string} editType O tipo de edição: 'recurring' ou 'installment'.
- */
-async function applyEditToSeriesLancamentos(idToUpdate, field, newValue, baseLancamento, editType) {
-    if (!baseLancamento) {
-        showMessageBox('Erro', 'Dados do lançamento base não fornecidos.');
-        return;
-    }
-    const confirmation = await showConfirmBox('Confirmar Edição em Massa', 'Esta ação irá atualizar TODOS os lançamentos futuros (ou da série) desta categoria. Tem certeza?');
-    if (!confirmation) return;
-
-    showMessageBox('Aguarde', 'Atualizando lançamentos em massa...');
-    document.getElementById('messageBoxOkBtn').classList.add('hidden'); // Esconde o botão OK durante o processamento
-
-    try {
-        const batchUpdates = [];
-        let q;
-
-        console.log(`[applyEditToSeriesLancamentos] Iniciando edição em massa para:`);
-        console.log(`[applyEditToSeriesLancamentos] ID do lançamento base (editado): ${idToUpdate}`);
-        console.log(`[applyEditToSeriesLancamentos] Campo a ser atualizado: ${field}`);
-        console.log(`[applyEditToSeriesLancamentos] Novo valor (base): ${newValue}`);
-        console.log(`[applyEditToSeriesLancamentos] Tipo de edição: ${editType}`);
-        console.log(`[applyEditToSeriesLancamentos] Dados do lançamento base:`, baseLancamento);
-
-        if (editType === 'recurring') {
-            if (!baseLancamento.isRecurring || !baseLancamento.recurringGroupId) {
-                showMessageBox('Erro', 'Este lançamento não é uma cobrança recorrente válida para edição em série.');
-                return;
-            }
-            q = query(
-                lancamentosCollection,
-                where("recurringGroupId", "==", baseLancamento.recurringGroupId),
-                where("householdId", "==", currentHouseholdId)
-            );
-        } else if (editType === 'installment') {
-            if (!(baseLancamento.parcelaAtual && baseLancamento.totalParcelas && baseLancamento.originalPurchaseAno)) {
-                showMessageBox('Erro', 'Este lançamento não é uma parcela válida para edição em série.');
-                return;
-            }
-            // Para parcelas, consultamos com base na data da compra original
-            q = query(
-                lancamentosCollection,
-                where("originalPurchaseAno", "==", baseLancamento.originalPurchaseAno),
-                where("originalPurchaseMes", "==", baseLancamento.originalPurchaseMes),
-                where("originalPurchaseDia", "==", baseLancamento.originalPurchaseDia),
-                where("householdId", "==", currentHouseholdId)
-            );
-        } else {
-            showMessageBox('Erro', 'Tipo de edição em série inválido.');
-            return;
+        .message-box-content h3, .confirm-box-content h3, .stop-recurring-modal-content h3, .edit-recurring-choice-modal-content h3, #auth-modal h2 { /* #auth-modal h2 adicionado aqui */
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
         }
 
-        const querySnapshot = await getDocs(q);
-        console.log(`[applyEditToSeriesLancamentos] Documentos encontrados na query: ${querySnapshot.size}`);
-
-        querySnapshot.forEach((docSnap) => {
-            const lancamentoData = docSnap.data();
-            let shouldUpdateDoc = false;
-
-            // Lançamento atual sempre deve ser atualizado
-            if (docSnap.id === idToUpdate) {
-                shouldUpdateDoc = true;
-                console.log(`[applyEditToSeriesLancamentos] Incluindo documento editado: ${docSnap.id}`);
-            } else {
-                // Para outros documentos na série/grupo, verifica se são "futuros"
-                if (editType === 'recurring') {
-                    const lancamentoDate = new Date(lancamentoData.ano, lancamentoData.mes - 1, lancamentoData.dia);
-                    const baseDate = new Date(baseLancamento.ano, baseLancamento.mes - 1, baseLancamento.dia);
-
-                    if (lancamentoDate.getTime() >= baseDate.getTime()) {
-                        shouldUpdateDoc = true;
-                        console.log(`[applyEditToSeriesLancamentos] Incluindo lançamento recorrente futuro: ${docSnap.id} (Data: ${lancamentoDate.toLocaleDateString()})`);
-                    } else {
-                        console.log(`[applyEditToSeriesLancamentos] Ignorando lançamento recorrente passado: ${docSnap.id} (Data: ${lancamentoDate.toLocaleDateString()})`);
-                    }
-
-                } else if (editType === 'installment') {
-                    // Para parcelas, verifica se o número da parcela é igual ou posterior à parcela base
-                    if (lancamentoData.parcelaAtual && baseLancamento.parcelaAtual && lancamentoData.parcelaAtual >= baseLancamento.parcelaAtual) {
-                        shouldUpdateDoc = true;
-                        console.log(`[applyEditToSeriesLancamentos] Incluindo parcela futura: ${docSnap.id} (Parcela: ${lancamentoData.parcelaAtual}/${lancamentoData.totalParcelas})`);
-                    } else {
-                        console.log(`[applyEditToSeriesLancamentos] Ignorando parcela passada: ${docSnap.id} (Parcela: ${lancamentoData.parcelaAtual}/${lancamentoData.totalParcelas})`);
-                    }
-                }
-            }
-
-            // Apenas procede com a atualização se shouldUpdateDoc for true E o campo não for 'dataCompleta'
-            if (shouldUpdateDoc && field !== 'dataCompleta') {
-                const docRef = doc(db, lancamentosCollection.path, docSnap.id);
-                const updateData = {};
-
-                if (field === 'descricao') {
-                    // Para descrição de parcela, atualiza a descrição base e mantém o "(X/Y)"
-                    if (editType === 'installment') {
-                        const installmentPartMatch = lancamentoData.descricao.match(/\s\((\d+\/\d+)\)$/);
-                        const installmentPart = installmentPartMatch ? installmentPartMatch[0] : '';
-                        updateData[field] = `${newValue.trim()}${installmentPart}`;
-                    }
-                    // Para descrição recorrente, apenas o novo valor (sem (X/Y))
-                    else if (editType === 'recurring') {
-                        updateData[field] = newValue.trim();
-                    }
-                } else {
-                    updateData[field] = newValue;
-                }
-
-                // Lógica de ajuste adicional se o 'tipo' mudar
-                if (field === 'tipo') {
-                    if (newValue === 'entrada') {
-                        updateData.parcelaAtual = null;
-                        updateData.totalParcelas = null;
-                        updateData.isRecurring = false;
-                        updateData.recurringGroupId = null;
-                        updateData.originalPurchaseDia = null;
-                        updateData.originalPurchaseMes = null;
-                        updateData.originalPurchaseAno = null;
-                    } else if (newValue === 'saida' && !lancamentoData.isRecurring && lancamentoData.parcelaAtual === null && lancamentoData.totalParcelas === null) {
-                        updateData.parcelaAtual = 1;
-                        updateData.totalParcelas = 1;
-                        if (!lancamentoData.originalPurchaseDia) {
-                            updateData.originalPurchaseDia = lancamentoData.dia;
-                            updateData.originalPurchaseMes = lancamentoData.mes;
-                            updateData.originalPurchaseAno = lancamentoData.ano;
-                        }
-                    }
-                }
-
-                batchUpdates.push(setDoc(docRef, updateData, { merge: true }));
-            }
-        });
-
-        if (batchUpdates.length > 0) {
-            await Promise.all(batchUpdates); // Executa todas as atualizações simultaneamente
-            showMessageBox('Sucesso', 'Lançamentos em série atualizados com sucesso!');
-        } else {
-            showMessageBox('Info', 'Nenhum lançamento futuro encontrado para atualização em massa com os critérios selecionados.');
-        }
-        pendingEditData = null; // Limpa os dados de edição pendentes
-
-    } catch (e) {
-        console.error("[applyEditToSeriesLancamentos] Erro ao aplicar edição em série:", e);
-        showMessageBox('Erro', `Erro ao atualizar lançamentos em série: ${e.message}. Por favor, tente novamente.`);
-    } finally {
-        document.getElementById('messageBoxOkBtn').classList.remove('hidden'); // Mostra o botão OK novamente
-    }
-}
-
-/**
- * Exclui um lançamento específico do Firestore.
- * @param {string} id O ID do documento a ser excluído.
- */
-async function deleteLancamento(id) {
-    if (!isAuthReady) {
-        showMessageBox('Aguarde', 'Aplicação ainda carregando, por favor, aguarde.');
-        return;
-    }
-    try {
-        const lancamentoToDelete = lancamentos.find(l => l.id === id);
-        if (lancamentoToDelete.isRecurring && lancamentoToDelete.recurringGroupId) {
-            const confirmRecurring = await showConfirmBox('Excluir Recorrência', 'Este é um lançamento recorrente. Deseja excluir apenas este lançamento ou todos os lançamentos futuros desta série?');
-            if (confirmRecurring) {
-                // Excluir todos os lançamentos futuros da série
-                await deleteRecurringSeries(lancamentoToDelete.recurringGroupId, lancamentoToDelete.ano, lancamentoToDelete.mes, lancamentoToDelete.dia);
-            } else {
-                // Excluir apenas este lançamento
-                await deleteDoc(doc(db, lancamentosCollection.path, id));
-            }
-        } else if (lancamentoToDelete.parcelaAtual && lancamentoToDelete.totalParcelas > 0) {
-            const confirmInstallment = await showConfirmBox('Excluir Parcela', 'Este é um lançamento parcelado. Deseja excluir apenas esta parcela ou todas as parcelas futuras desta série?');
-            if (confirmInstallment) {
-                // Excluir todas as parcelas futuras da série
-                await deleteInstallmentSeries(lancamentoToDelete);
-            } else {
-                // Excluir apenas esta parcela
-                await deleteDoc(doc(db, lancamentosCollection.path, id));
-            }
-        } else {
-            // Lançamento único
-            await deleteDoc(doc(db, lancamentosCollection.path, id));
-        }
-        showMessageBox('Sucesso', 'Lançamento excluído com sucesso!');
-        selectedLancamentosIds.delete(id); // Remove do conjunto de selecionados
-        updateDeleteButtonState();
-    } catch (e) {
-        console.error("Erro ao excluir documento: ", e);
-        showMessageBox('Erro', 'Erro ao excluir lançamento. Por favor, tente novamente.');
-    }
-}
-
-/**
- * Manipula a seleção/desseleção do checkbox "Selecionar Todos".
- * @param {Event} event O objeto do evento de mudança.
- */
-function handleSelectAllChange(event) {
-    const isChecked = event.target.checked;
-    document.querySelectorAll('.row-checkbox').forEach(checkbox => {
-        checkbox.checked = isChecked;
-        const id = checkbox.dataset.id;
-        if (isChecked) {
-            selectedLancamentosIds.add(id);
-        } else {
-            selectedLancamentosIds.delete(id);
-        }
-    });
-    updateDeleteSelectedButtonVisibility();
-}
-
-/**
- * Manipula a seleção/desseleção de um checkbox de linha individual.
- * @param {Event} event O objeto do evento de mudança.
- */
-function handleRowCheckboxChange(event) {
-    const id = event.target.dataset.id;
-    if (event.target.checked) {
-        selectedLancamentosIds.add(id);
-    } else {
-        selectedLancamentosIds.delete(id);
-    }
-    updateSelectAllCheckboxState();
-    updateDeleteSelectedButtonVisibility();
-}
-
-/**
- * Atualiza o estado do checkbox "Todos os Meses" (marcado/indeterminado/desmarcado).
- */
-function updateSelectAllCheckboxState() {
-    const allCheckboxes = document.querySelectorAll('.row-checkbox');
-    if (!selectAllCheckbox) return;
-
-    if (allCheckboxes.length === 0) {
-        selectAllCheckbox.checked = false;
-        selectAllCheckbox.indeterminate = false;
-        return;
-    }
-
-    const checkedCheckboxes = Array.from(allCheckboxes).filter(cb => cb.checked);
-    const allChecked = checkedCheckboxes.length === allCheckboxes.length;
-    const someChecked = checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length;
-
-    selectAllCheckbox.checked = allChecked;
-    selectAllCheckbox.indeterminate = someChecked;
-}
-
-/**
- * Atualiza a visibilidade do botão "Excluir Selecionados".
- */
-function updateDeleteSelectedButtonVisibility() {
-    if (deleteSelectedBtn) {
-        if (selectedLancamentosIds.size > 0) {
-            deleteSelectedBtn.classList.remove('hidden');
-            deleteSelectedBtn.textContent = `Excluir Selecionados (${selectedLancamentosIds.size})`;
-        } else {
-            deleteSelectedBtn.classList.add('hidden');
-        }
-    }
-}
-
-/**
- * Exclui todos os lançamentos atualmente selecionados na tabela.
- */
-async function deleteSelectedLancamentos() {
-    if (!isAuthReady) {
-        showMessageBox('Aguarde', 'Aplicação ainda carregando, por favor, aguarde.');
-        return;
-    }
-    if (selectedLancamentosIds.size === 0) {
-        showMessageBox('Info', 'Nenhum lançamento selecionado para exclusão.');
-        return;
-    }
-
-    const confirmation = await showConfirmBox('Confirmação', `Tem certeza que deseja excluir ${selectedLancamentosIds.size} lançamento(s) selecionado(s)?`);
-    if (!confirmation) {
-        return;
-    }
-
-    const deletePromises = [];
-    selectedLancamentosIds.forEach(id => {
-        const docRef = doc(db, lancamentosCollection.path, id);
-        deletePromises.push(deleteDoc(docRef));
-    });
-
-    try {
-        await Promise.all(deletePromises);
-        showMessageBox('Sucesso', `${selectedLancamentosIds.size} lançamentos excluídos com sucesso!`);
-        selectedLancamentosIds.clear(); // Limpa a seleção após a exclusão
-        updateDeleteSelectedButtonVisibility();
-    } catch (e) {
-        console.error("Erro ao excluir lançamentos selecionados: ", e);
-        showMessageBox('Erro', 'Erro ao excluir lançamentos selecionados. Por favor, tente novamente.');
-    }
-}
-
-/**
- * Exclui uma série de lançamentos recorrentes a partir de um ponto.
- * @param {string} recurringGroupId O ID do grupo de recorrência.
- * @param {number} startYear O ano a partir do qual excluir.
- * @param {number} startMonth O mês a partir do qual excluir.
- * @param {number} startDay O dia a partir do qual excluir.
- */
-async function deleteRecurringSeries(recurringGroupId, startYear, startMonth, startDay) {
-    const q = query(
-        lancamentosCollection,
-        where('recurringGroupId', '==', recurringGroupId),
-        orderBy('ano'),
-        orderBy('mes'),
-        orderBy('dia')
-    );
-    const querySnapshot = await getDocs(q);
-    const batch = writeBatch(db);
-    querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        // Exclui lançamentos que são iguais ou futuros ao ponto de início
-        if (data.ano > startYear ||
-            (data.ano === startYear && data.mes > startMonth) ||
-            (data.ano === startYear && data.mes === startMonth && data.dia >= startDay)) {
-            batch.delete(doc(db, lancamentosCollection.path, docSnap.id));
-        }
-    });
-    await batch.commit();
-}
-
-/**
- * Exclui uma série de lançamentos parcelados a partir de uma parcela específica.
- * @param {object} baseLancamento O lançamento base da série.
- */
-async function deleteInstallmentSeries(baseLancamento) {
-    const q = query(
-        lancamentosCollection,
-        where('originalPurchaseDia', '==', baseLancamento.originalPurchaseDia),
-        where('originalPurchaseMes', '==', baseLancamento.originalPurchaseMes),
-        where('originalPurchaseAno', '==', baseLancamento.originalPurchaseAno),
-        where('descricao', '==', baseLancamento.descricao.split(' (')[0]), // Matching base description
-        where('valor', '==', baseLancamento.valor), // Assuming value is also constant for the series
-        where('totalParcelas', '==', baseLancamento.totalParcelas),
-        where('parcelaAtual', '>=', baseLancamento.parcelaAtual)
-    );
-    const querySnapshot = await getDocs(q);
-    const batch = writeBatch(db);
-    querySnapshot.forEach((docSnap) => {
-        batch.delete(doc(db, lancamentosCollection.path, docSnap.id));
-    });
-    await batch.commit();
-}
-
-
-/**
- * Exibe o modal para selecionar os meses para parar uma recorrência.
- * @param {string} recurringId O ID do grupo de recorrência a ser parado.
- * @param {string} originalPurchaseYear O ano da compra original da recorrência.
- * @param {string} originalPurchaseMonth O mês da compra original da recorrência.
- */
-function showStopRecurringMonthsModal(recurringId, originalPurchaseYear, originalPurchaseMonth) {
-    currentRecurringGroupId = recurringId;
-
-    // Resetar o estado do modal
-    stopFromCurrentMonthCheckbox.checked = false;
-    monthStopCheckboxes.forEach(cb => cb.checked = false);
-    specificMonthsSelectionDiv.classList.remove('opacity-50', 'pointer-events-none'); // Habilitar a seção de meses
-
-    const today = new Date();
-    const currentMonthName = getMonthName(today.getMonth() + 1);
-    const currentYear = today.getFullYear();
-    currentMonthAndYearSpan.textContent = `${currentMonthName}/${currentYear}`;
-
-    // Preenche as opções de ano no modal
-    stopRecurringYearSelect.innerHTML = '';
-    const startYear = currentYear - 50;
-    const endYear = currentYear + 50;
-    for (let y = startYear; y <= endYear; y++) {
-        const option = document.createElement('option');
-        option.value = y;
-        option.textContent = y;
-        if (y === currentYear) {
-            option.selected = true;
-        }
-        stopRecurringYearSelect.appendChild(option);
-    }
-
-    // Pre-seleciona o mês da compra original da recorrência se for relevante
-    if (originalPurchaseMonth && monthStopCheckboxes) {
-        const originalMonthCb = Array.from(monthStopCheckboxes).find(cb => parseInt(cb.value) === parseInt(originalPurchaseMonth));
-        if (originalMonthCb) {
-            originalMonthCb.checked = true;
-        }
-    }
-    if (originalPurchaseYear && stopRecurringYearSelect) {
-        stopRecurringYearSelect.value = originalPurchaseYear;
-    }
-
-
-    stopRecurringMonthsModalOverlay.classList.remove('hidden');
-}
-
-/**
- * Lida com a confirmação no modal de parar recorrência.
- */
-async function handleStopRecurringConfirmation() {
-    if (!currentRecurringGroupId) {
-        showMessageBox('Erro', 'ID do grupo recorrente não definido.');
-        return;
-    }
-
-    const stopFromCurrentMonthAndFuture = stopFromCurrentMonthCheckbox.checked;
-    let selectedMonthsForStop = [];
-    let selectedYearForStop = parseInt(stopRecurringYearSelect.value);
-
-    if (!stopFromCurrentMonthAndFuture) {
-        selectedMonthsForStop = Array.from(monthStopCheckboxes)
-            .filter(cb => cb.checked)
-            .map(cb => parseInt(cb.value));
-
-        if (selectedMonthsForStop.length === 0) {
-            showMessageBox('Aviso', 'Por favor, selecione pelo menos um mês ou marque a opção "Parar a partir do mês atual e futuros".');
-            return;
-        }
-    } else {
-        monthStopCheckboxes.forEach(cb => cb.checked = false);
-        selectedMonthsForStop = []; // Garante que a lista esteja vazia
-        selectedYearForStop = new Date().getFullYear(); // Usa o ano atual para a lógica "a partir do mês atual"
-    }
-
-    const confirmation = await showConfirmBox('Confirmação', 'Tem certeza que deseja parar esta cobrança recorrente com as opções selecionadas?');
-    if (confirmation) {
-        const currentMonth = new Date().getMonth() + 1; // Mês atual
-        await stopRecurringExpense(currentRecurringGroupId, stopFromCurrentMonthAndFuture, selectedMonthsForStop, selectedYearForStop, currentMonth);
-        stopRecurringMonthsModalOverlay.classList.add('hidden');
-    }
-}
-
-
-/**
- * Interrompe uma cobrança recorrente, excluindo os lançamentos futuros associados ou meses específicos.
- * @param {string} recurringGroupId O ID do grupo de recorrência.
- * @param {boolean} stopFromCurrentMonthAndFuture Se deve parar a partir do mês atual e futuros.
- * @param {number[]} selectedMonthsForStop Array de números dos meses selecionados para parar (se não for stopFromCurrentMonthAndFuture).
- * @param {number} selectedYearForStop O ano para o qual a parada se aplica.
- * @param {number} currentMonthParameter O mês atual para a lógica "a partir do mês atual".
- */
-async function stopRecurringExpense(recurringGroupId, stopFromCurrentMonthAndFuture, selectedMonthsForStop, selectedYearForStop, currentMonthParameter) {
-    if (!isAuthReady) {
-        showMessageBox('Aguarde', 'Aplicação ainda carregando, por favor, aguarde.');
-        return;
-    }
-
-    if (!recurringGroupId) {
-        showMessageBox('Erro', 'ID do grupo recorrente não encontrado.');
-        return;
-    }
-
-    try {
-        const q = query(
-            lancamentosCollection,
-            where("recurringGroupId", "==", recurringGroupId),
-            where("householdId", "==", currentHouseholdId)
-        );
-        const querySnapshot = await getDocs(q);
-
-        const deletePromises = [];
-        let countDeleted = 0;
-        const currentFullYear = new Date().getFullYear();
-        const currentFullMonth = new Date().getMonth() + 1;
-
-        querySnapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            let shouldDelete = false;
-
-            if (stopFromCurrentMonthAndFuture) {
-                if (data.ano > currentFullYear || (data.ano === currentFullYear && data.mes >= currentFullMonth)) {
-                    shouldDelete = true;
-                }
-            } else {
-                if (data.ano === selectedYearForStop && selectedMonthsForStop.includes(data.mes)) {
-                    shouldDelete = true;
-                }
-            }
-
-            if (shouldDelete) {
-                deletePromises.push(deleteDoc(doc(db, lancamentosCollection.path, docSnap.id)));
-                countDeleted++;
-            }
-        });
-
-        if (deletePromises.length > 0) {
-            await Promise.all(deletePromises);
-            showMessageBox('Sucesso', `${countDeleted} lançamentos recorrentes foram excluídos conforme sua seleção.`);
-        } else {
-            showMessageBox('Info', 'Nenhum lançamento encontrado para exclusão com os critérios selecionados.');
-        }
-    }
-    catch (e) {
-        console.error("Erro ao parar cobrança recorrente:", e);
-        if (e.code === 'failed-precondition' && e.message.includes('The query requires an index')) {
-            showMessageBox('Erro de Índice do Firestore', 'Sua consulta de parada de recorrência requer um índice no Firestore. Por favor, verifique o console do navegador para o link de criação do índice ou altere a lógica de filtragem.');
-        } else {
-            showMessageBox('Erro', `Erro ao parar a cobrança recorrente: ${e.message}. Por favor, tente novamente.`);
-        }
-    }
-}
-
-/**
- * Atualiza o resumo mensal com base nos lançamentos filtrados.
- */
-function updateSummary() {
-    if (!totalEntradasSpan || !totalSaidasSpan || !mediaDiariaSpan || !saldoMesSpan ||
-        !filterMesAll || !monthFilterCheckboxes || monthFilterCheckboxes.length === 0 || !filterAnoSelect || !searchBarInput || !saldoStatusBar || !saldoStatusText) {
-        console.warn("Elementos do resumo, filtro ou busca não encontrados (updateSummary). Retornando.");
-        return;
-    }
-
-    const selectedMonthsFilter = Array.from(monthFilterCheckboxes)
-        .filter(checkbox => checkbox.checked)
-        .map(checkbox => parseInt(checkbox.value));
-
-    const selectedYearFilter = filterAnoSelect.value;
-    const searchTerm = searchBarInput.value.toLowerCase().trim();
-
-    let filteredLancamentos = [...lancamentos];
-
-    if (!filterMesAll.checked && selectedMonthsFilter.length > 0) {
-        filteredLancamentos = filteredLancamentos.filter(l => selectedMonthsFilter.includes(l.mes));
-    } else if (!filterMesAll.checked && selectedMonthsFilter.length === 0) {
-        filteredLancamentos = [];
-    }
-
-    if (selectedYearFilter !== 'all') {
-        const yearNumber = parseInt(selectedYearFilter);
-        filteredLancamentos = filteredLancamentos.filter(l => l.ano === yearNumber);
-    }
-
-    if (searchTerm) {
-        filteredLancamentos = filteredLancamentos.filter(l =>
-            (l.descricao && l.descricao.toLowerCase().includes(searchTerm)) ||
-            (l.categoria && l.categoria.toLowerCase().includes(searchTerm)) ||
-            (l.valor && l.valor.toString().includes(searchTerm))
-        );
-    }
-
-    let totalEntradas = 0;
-    let totalSaidas = 0;
-    let daysInMonth = 0;
-
-    if (!filterMesAll.checked && selectedMonthsFilter.length === 1 && selectedYearFilter !== 'all') {
-        const year = parseInt(selectedYearFilter);
-        const month = parseInt(selectedMonthsFilter[0]);
-        daysInMonth = new Date(year, month, 0).getDate();
-    } else if (!filterMesAll.checked && selectedMonthsFilter.length > 1 && selectedYearFilter !== 'all') {
-        // Se vários meses são selecionados, soma os dias de cada mês
-        selectedMonthsFilter.forEach(month => {
-            daysInMonth += new Date(parseInt(selectedYearFilter), month, 0).getDate();
-        });
-    }
-
-
-    filteredLancamentos.forEach(lancamento => {
-        if (lancamento.tipo === 'entrada') {
-            totalEntradas += lancamento.valor;
-        } else if (lancamento.tipo === 'saida') {
-            totalSaidas += lancamento.valor;
-        }
-    });
-
-    const saldoMes = totalEntradas - totalSaidas;
-    const mediaDiaria = daysInMonth > 0 ? totalSaidas / daysInMonth : 0;
-
-    totalEntradasSpan.textContent = `R$ ${totalEntradas.toFixed(2).replace('.', ',')}`;
-    totalSaidasSpan.textContent = `R$ ${totalSaidas.toFixed(2).replace('.', ',')}`;
-    mediaDiariaSpan.textContent = `R$ ${mediaDiaria.toFixed(2).replace('.', ',')}`;
-    saldoMesSpan.textContent = `R$ ${saldoMes.toFixed(2).replace('.', ',')}`;
-
-    if (saldoMes >= 0) {
-        saldoMesSpan.classList.remove('text-red-700');
-        saldoMesSpan.classList.add('text-green-800');
-    } else {
-        saldoMesSpan.classList.remove('text-green-800');
-        saldoMesSpan.classList.add('text-red-700');
-    }
-
-    const totalAbsoluto = totalEntradas + totalSaidas;
-    let percentualEntradas = 0;
-
-    if (totalAbsoluto > 0) {
-        percentualEntradas = (totalEntradas / totalAbsoluto) * 100;
-    }
-
-    saldoStatusBar.style.width = `${Math.min(percentualEntradas, 100)}%`;
-
-    if (saldoMes >= 0) {
-        saldoStatusBar.classList.remove('bg-red-500');
-        saldoStatusBar.classList.add('bg-green-500');
-        saldoStatusText.textContent = 'Saldo Positivo';
-        saldoStatusText.classList.remove('text-red-700');
-        saldoStatusText.classList.add('text-green-800');
-    } else {
-        saldoStatusBar.classList.remove('bg-green-500');
-        saldoStatusBar.classList.add('bg-red-500');
-        saldoStatusText.textContent = 'Saldo Negativo';
-        saldoStatusText.classList.remove('text-green-800');
-        saldoStatusText.classList.add('text-red-700');
-    }
-}
-
-
-/**
- * Função assíncrona para lidar com o envio do formulário de lançamento.
- * @param {Event} event O evento de envio do formulário.
- */
-async function addGastoBtnClickHandler(event) {
-    event.preventDefault(); // Evita o recarregamento da página
-
-    if (!isAuthReady) {
-        showMessageBox('Aguarde', 'Aplicação ainda carregando, por favor, aguarde a autenticação do utilizador.');
-        return;
-    }
-    if (!userId) {
-        showMessageBox('Erro', 'ID do utilizador não disponível. Por favor, recarregue a página.');
-        return;
-    }
-    if (!currentHouseholdId) {
-        showMessageBox('Erro', 'ID da Família/Casa não definido. Por favor, defina um ID de Família/Casa antes de adicionar lançamentos.');
-        return;
-    }
-    if (!lancamentosCollection) {
-        showMessageBox('Erro', 'Coleção do Firestore não inicializada. Recarregue a página.');
-        return;
-    }
-
-    // Coleta os valores do formulário
-    const dateInput = diaInput.value; // Pegar a data completa do input type="date"
-    const [anoStr, mesStr, diaStr] = dateInput.split('-');
-    const dia = parseInt(diaStr);
-    const mes = parseInt(mesStr);
-    const ano = parseInt(anoStr);
-
-    const descricao = descricaoInput.value.trim();
-    const valorTotal = parseFloat(valorInput.value);
-    const categoria = categoriaSelect.value;
-    const tipo = tipoEntradaRadio.checked ? tipoEntradaRadio.value : tipoSaidaRadio.value;
-    const parcelaAtual = parseInt(parcelaAtualSelect.value);
-    const totalParcelas = parseInt(totalParcelasSelect.value);
-    const isRecurring = isRecurringCheckbox.checked;
-
-    // Validações básicas
-    if (!dateInput || !descricao || isNaN(valorTotal) || valorTotal <= 0 || !categoria) {
-        showMessageBox('Erro de Validação', 'Por favor, preencha todos os campos corretamente (data, descrição, valor positivo, categoria).');
-        return;
-    }
-    if (mes < 1 || mes > 12) {
-        showMessageBox('Erro de Validação', 'Mês inválido. Por favor, insira um mês entre 1 e 12.');
-        return;
-    }
-    const currentYear = new Date().getFullYear();
-    if (ano < currentYear - 100 || ano > currentYear + 100) {
-        showMessageBox('Erro de Validação', `Ano inválido. Por favor, insira um ano entre ${currentYear - 100} e ${currentYear + 100}.`);
-        return;
-    }
-
-    // Validação para parcelas
-    if (tipo === 'saida' && !isRecurring && (parcelaAtual !== 0 || totalParcelas !== 0)) {
-        if ((isNaN(parcelaAtual) || parcelaAtual < 0) || (isNaN(totalParcelas) || totalParcelas < 0)) {
-            showMessageBox('Erro de Validação', 'Parcela atual e total de parcelas devem ser números válidos ou 0.');
-            return;
-        }
-        if ((parcelaAtual === 0 && totalParcelas > 0) || (parcelaAtual > 0 && totalParcelas === 0)) {
-            showMessageBox('Erro de Validação', 'Se um for 0, o outro também deve ser 0 para parcelas, ou ambos devem ser maiores que 0.');
-            return;
-        }
-        if (parcelaAtual > totalParcelas && totalParcelas !== 0) {
-            showMessageBox('Erro de Validação', 'A Parcela Atual não pode ser maior que o Total de Parcelas.');
-            return;
-        }
-    }
-
-
-    let recurringGroupId = null;
-    if (isRecurring) {
-        recurringGroupId = doc(collection(db, "recurringGroups")).id; // Gera um ID único para o grupo recorrente
-    }
-
-    try {
-        if (isRecurring) {
-            const batch = writeBatch(db);
-            const baseDate = new Date(ano, mes - 1, dia); // Data inicial da recorrência
-
-            for (let i = 0; i <= RECURRING_MONTHS_AHEAD; i++) {
-                const futureDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate());
-
-                // Ajuste para datas que "pulam" o dia do mês (ex: 31 de janeiro para 31 de fevereiro)
-                if (futureDate.getDate() !== baseDate.getDate()) {
-                    futureDate.setDate(0); // Último dia do mês anterior
-                    futureDate.setMonth(futureDate.getMonth() + 1); // Volta para o mês correto, no último dia
-                }
-
-                const futureDay = futureDate.getDate();
-                const futureMonth = futureDate.getMonth() + 1;
-                const futureYear = futureDate.getFullYear();
-
-                const newLancamentoRef = doc(lancamentosCollection);
-                batch.set(newLancamentoRef, {
-                    dia: futureDay,
-                    mes: futureMonth,
-                    ano: futureYear,
-                    descricao: descricao,
-                    valor: valorTotal,
-                    categoria: categoria,
-                    tipo: tipo,
-                    isRecurring: true,
-                    recurringGroupId: recurringGroupId,
-                    createdAt: serverTimestamp(), // Usa serverTimestamp para consistência
-                    userId: userId,
-                    householdId: currentHouseholdId,
-                    parcelaAtual: null,
-                    totalParcelas: null,
-                    originalPurchaseDia: dia, // Original para a série recorrente
-                    originalPurchaseMes: mes,
-                    originalPurchaseAno: ano, // Original para a série recorrente
-                });
-            }
-            await batch.commit();
-            showMessageBox('Sucesso', `Cobrança recorrente adicionada para ${RECURRING_MONTHS_AHEAD + 1} meses!`);
-
-        } else if (totalParcelas > 1) { // Geração automática de parcelas
-            const originalPurchaseDay = dia;
-            const originalPurchaseMonth = mes;
-            const originalPurchaseYear = ano;
-            const valorParcela = parseFloat((valorTotal / totalParcelas).toFixed(2));
-            const batch = writeBatch(db);
-
-            for (let i = 0; i < totalParcelas; i++) {
-                const installmentNumber = i + 1;
-                const baseDate = new Date(originalPurchaseYear, originalPurchaseMonth - 1, originalPurchaseDay);
-                const futureDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate());
-
-                 // Ajuste para datas que "pulam" o dia do mês (ex: 31 de janeiro para 31 de fevereiro)
-                if (futureDate.getDate() !== baseDate.getDate()) {
-                    futureDate.setDate(0); // Último dia do mês anterior
-                    futureDate.setMonth(futureDate.getMonth() + 1); // Volta para o mês correto, no último dia
-                }
-
-                const futureDay = futureDate.getDate();
-                const futureMonth = futureDate.getMonth() + 1;
-                const futureYear = futureDate.getFullYear();
-
-                const newLancamentoRef = doc(lancamentosCollection);
-                batch.set(newLancamentoRef, {
-                    dia: futureDay,
-                    mes: futureMonth,
-                    ano: futureYear,
-                    descricao: `${descricao} (${installmentNumber}/${totalParcelas})`,
-                    valor: valorParcela,
-                    categoria: categoria,
-                    tipo: tipo,
-                    isRecurring: false,
-                    recurringGroupId: null,
-                    createdAt: serverTimestamp(), // Usa serverTimestamp para consistência
-                    userId: userId,
-                    householdId: currentHouseholdId,
-                    parcelaAtual: installmentNumber,
-                    totalParcelas: totalParcelas,
-                    originalPurchaseDia: originalPurchaseDay,
-                    originalPurchaseMes: originalPurchaseMonth,
-                    originalPurchaseAno: originalPurchaseYear,
-                });
-            }
-            await batch.commit();
-            showMessageBox('Sucesso', `${totalParcelas} parcelas adicionadas com sucesso!`);
-        } else {
-            // Lançamento único (não recorrente e não parcelado)
-            const newLancamentoRef = doc(lancamentosCollection);
-            await setDoc(newLancamentoRef, {
-                dia: dia,
-                mes: mes,
-                ano: ano,
-                descricao: descricao,
-                valor: valorTotal,
-                categoria: categoria,
-                tipo: tipo,
-                isRecurring: false,
-                recurringGroupId: null,
-                createdAt: serverTimestamp(), // Usa serverTimestamp para consistência
-                userId: userId,
-                householdId: currentHouseholdId,
-                parcelaAtual: null,
-                totalParcelas: null,
-                originalPurchaseDia: null, // Limpa para lançamentos únicos
-                originalPurchaseMes: null,
-                originalPurchaseAno: null, // Limpa para lançamentos únicos
-            });
-            showMessageBox('Sucesso', 'Lançamento adicionado com sucesso!');
+        .message-box-content p, .confirm-box-content p, .stop-recurring-modal-content p, .edit-recurring-choice-modal-content p, #auth-modal p { /* #auth-modal p adicionado aqui */
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 25px;
         }
 
-        // Limpa o formulário após a adição bem-sucedida
-        lancamentoForm.reset();
-        isRecurringCheckbox.checked = false; // Reset recurring checkbox
-        parcelaAtualSelect.value = '0';
-        totalParcelasSelect.value = '0';
-        // Atualiza os campos de data para a data atual
-        const resetToday = new Date();
-        const resetDay = String(resetToday.getDate()).padStart(2, '0');
-        const resetMonth = String(resetToday.getMonth() + 1).padStart(2, '0');
-        const resetYear = resetToday.getFullYear();
-        diaInput.value = `${resetYear}-${resetMonth}-${resetDay}`;
-        mesInput.value = resetToday.getMonth() + 1;
-        anoInput.value = resetYear;
-
-    } catch (e) {
-        console.error("Erro ao adicionar lançamento: ", e);
-        showMessageBox('Erro', `Erro ao adicionar lançamento: ${e.message}. Por favor, verifique sua conexão ou tente novamente.`);
-    }
-}
-
-/**
- * Renderiza os lançamentos na tabela, aplicando os filtros selecionados.
- */
-function renderLancamentos() {
-    if (!gastosTableBody || !noExpensesMessage || !filterMesAll || !monthFilterCheckboxes || monthFilterCheckboxes.length === 0 || !filterAnoSelect || !searchBarInput) {
-        console.warn("Elementos da tabela, filtros ou busca não encontrados (renderLancamentos). Retornando.");
-        return;
-    }
-
-    gastosTableBody.innerHTML = ''; // Limpa a tabela
-
-    const selectedMonthsFilter = Array.from(monthFilterCheckboxes)
-        .filter(checkbox => checkbox.checked)
-        .map(checkbox => parseInt(checkbox.value));
-
-    const selectedYearFilter = filterAnoSelect.value;
-    const searchTerm = searchBarInput.value.toLowerCase().trim();
-
-    let filteredLancamentos = [...lancamentos];
-
-    if (!filterMesAll.checked && selectedMonthsFilter.length > 0) {
-        filteredLancamentos = filteredLancamentos.filter(l => selectedMonthsFilter.includes(l.mes));
-    } else if (!filterMesAll.checked && selectedMonthsFilter.length === 0 && selectedYearFilter !== 'all') {
-        // Se nenhum mês está selecionado e um ano específico está, exibe nada
-        filteredLancamentos = [];
-    } else if (filterMesAll.checked) {
-        // Se "Todos os Meses" está marcado, não filtra por mês
-        // Isso é o comportamento esperado para "Todos os Meses"
-    }
-
-
-    if (selectedYearFilter !== 'all') {
-        const yearNumber = parseInt(selectedYearFilter);
-        filteredLancamentos = filteredLancamentos.filter(l => l.ano === yearNumber);
-    }
-
-    if (searchTerm) {
-        filteredLancamentos = filteredLancamentos.filter(l =>
-            (l.descricao && l.descricao.toLowerCase().includes(searchTerm)) ||
-            (l.categoria && l.categoria.toLowerCase().includes(searchTerm)) ||
-            (l.valor && l.valor.toString().includes(searchTerm))
-        );
-    }
-
-    if (filteredLancamentos.length === 0) {
-        noExpensesMessage.classList.remove('hidden');
-        gastosTableBody.classList.add('hidden');
-    } else {
-        noExpensesMessage.classList.add('hidden');
-        gastosTableBody.classList.remove('hidden');
-
-        // Ordena os lançamentos: por ano (desc), depois mês (desc), depois dia (desc), depois createdAt (desc)
-        filteredLancamentos.sort((a, b) => {
-            if (a.ano !== b.ano) return b.ano - a.ano;
-            if (a.mes !== b.mes) return b.mes - a.mes;
-            if (a.dia !== b.dia) return b.dia - a.dia;
-            // createdAt é um Timestamp, precisa converter para comparar
-            const aCreatedAt = a.createdAt ? a.createdAt.toMillis() : 0;
-            const bCreatedAt = b.createdAt ? b.createdAt.toMillis() : 0;
-            return bCreatedAt - aCreatedAt; // Mais recente primeiro
-        });
-
-        filteredLancamentos.forEach(lancamento => {
-            let displayedDescription = lancamento.descricao;
-
-            // Determina qual data exibir para parcelas vs. outros lançamentos
-            const displayDay = (lancamento.originalPurchaseDia) ? String(lancamento.originalPurchaseDia).padStart(2, '0') : String(lancamento.dia).padStart(2, '0');
-            const displayMonth = (lancamento.originalPurchaseMes) ? String(lancamento.originalPurchaseMes).padStart(2, '0') : String(lancamento.mes).padStart(2, '0');
-            const displayYear = (lancamento.originalPurchaseAno) ? lancamento.originalPurchaseAno : lancamento.ano;
-
-            const formattedDate = `${displayDay}/${displayMonth}/${displayYear}`;
-
-            const row = document.createElement('tr');
-            row.className = `border-b border-gray-100 ${lancamento.tipo === 'entrada' ? 'bg-green-50' : 'bg-red-50'} hover:bg-gray-100 transition-colors duration-150`;
-            row.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <input type="checkbox" data-id="${lancamento.id}" class="form-checkbox h-4 w-4 text-blue-600 rounded row-checkbox" ${selectedLancamentosIds.has(lancamento.id) ? 'checked' : ''}>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800" data-id="${lancamento.id}" data-field="dataCompleta">${formattedDate}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                    ${lancamento.isRecurring ? `<button class="text-purple-600 hover:text-purple-900 stop-recurring-btn" data-id="${lancamento.id}" data-recurring-group-id="${lancamento.recurringGroupId}" data-original-purchase-year="${lancamento.originalPurchaseAno}" data-original-purchase-month="${lancamento.originalPurchaseMes}">Parar Recorrência</button>` : ''}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800" data-id="${lancamento.id}" data-field="descricao">${displayedDescription}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${lancamento.tipo === 'entrada' ? 'text-income' : 'text-expense'}" data-id="${lancamento.id}" data-field="valor">R$ ${lancamento.valor.toFixed(2).replace('.', ',')}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800" data-id="${lancamento.id}" data-field="categoria">${lancamento.categoria}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800" data-id="${lancamento.id}" data-field="tipo">${lancamento.tipo === 'entrada' ? 'Entrada' : 'Saída'}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button class="text-indigo-600 hover:text-indigo-900 mr-3 edit-btn" data-id="${lancamento.id}">Editar</button>
-                    <button class="text-red-600 hover:text-red-900 delete-btn" data-id="${lancamento.id}">Excluir</button>
-                </td>
-            `;
-            gastosTableBody.appendChild(row);
-
-            row.querySelectorAll('td[data-field]').forEach(cell => {
-                cell.addEventListener('dblclick', () => handleEditCellClick(cell));
-            });
-            row.querySelector('.edit-btn').addEventListener('click', (e) => {
-                showMessageBox('Informação', 'Para editar um lançamento, dê um clique duplo na célula que deseja modificar.');
-            });
-            row.querySelector('.delete-btn').addEventListener('click', async (e) => {
-                const confirmation = await showConfirmBox('Confirmação', 'Tem certeza que deseja excluir este lançamento?');
-                if (confirmation) {
-                    deleteLancamento(e.target.dataset.id);
-                }
-            });
-
-            const stopRecurringBtn = row.querySelector('.stop-recurring-btn');
-            if (stopRecurringBtn) {
-                stopRecurringBtn.addEventListener('click', (e) => {
-                    const recurringId = e.target.dataset.recurringGroupId;
-                    const originalYear = e.target.dataset.originalPurchaseYear;
-                    const originalMonth = e.target.dataset.originalPurchaseMonth;
-                    showStopRecurringMonthsModal(recurringId, originalYear, originalMonth);
-                });
-            }
-
-            row.querySelector('.row-checkbox').addEventListener('change', handleRowCheckboxChange);
-        });
-    }
-    updateSelectAllCheckboxState();
-    updateDeleteSelectedButtonVisibility();
-}
-
-/**
- * Atualiza os campos de dia, mês e ano no formulário de acordo com as parcelas selecionadas.
- */
-function updateInstallmentDateFields() {
-    const currentParcelaAtual = parseInt(parcelaAtualSelect.value);
-    const currentTotalParcelas = parseInt(totalParcelasSelect.value);
-
-    // Se é uma cobrança recorrente, ou se não há parcelas selecionadas,
-    // os campos de data devem refletir a data atual ou o que o utilizador escolheu livremente.
-    if (isRecurringCheckbox.checked || (currentParcelaAtual === 0 && currentTotalParcelas === 0)) {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = (today.getMonth() + 1).toString().padStart(2, '0');
-        const day = today.getDate().toString().padStart(2, '0');
-        diaInput.value = `${year}-${month}-${day}`;
-        mesInput.value = parseInt(month);
-        anoInput.value = year;
-
-        originalInstallmentDate.day = today.getDate();
-        originalInstallmentDate.month = today.getMonth() + 1;
-        originalInstallmentDate.year = today.getFullYear();
-        return;
-    }
-
-    // Se parcelas estão selecionadas e originalInstallmentDate ainda não foi definida, usa a data do input
-    if ((currentParcelaAtual > 0 || currentTotalParcelas > 0) && originalInstallmentDate.day === null) {
-        try {
-            const selectedDate = new Date(diaInput.value + 'T00:00:00');
-            if (!isNaN(selectedDate.getTime())) {
-                originalInstallmentDate.day = selectedDate.getDate();
-                originalInstallmentDate.month = selectedDate.getMonth() + 1;
-                originalInstallmentDate.year = selectedDate.getFullYear();
-            }
-        } catch (e) {
-            console.warn("Erro ao definir originalInstallmentDate a partir do diaInput:", e);
-        }
-    }
-
-    // Se a parcela atual é 1, a data base é a data informada no input de dia
-    if (currentParcelaAtual === 1 && totalParcelasSelect.value !== '0') {
-        try {
-            const selectedDate = new Date(diaInput.value + 'T00:00:00');
-            if (!isNaN(selectedDate.getTime())) {
-                originalInstallmentDate.day = selectedDate.getDate();
-                originalInstallmentDate.month = selectedDate.getMonth() + 1;
-                originalInstallmentDate.year = selectedDate.getFullYear();
-            } else {
-                // Fallback para a data atual se o input for inválido
-                const today = new Date();
-                originalInstallmentDate.day = today.getDate();
-                originalInstallmentDate.month = today.getMonth() + 1;
-                originalInstallmentDate.year = today.getFullYear();
-            }
-        } catch (e) {
-            console.error("Erro ao parsear data do diaInput para originalInstallmentDate:", e);
-            const today = new Date();
-            originalInstallmentDate.day = today.getDate();
-            originalInstallmentDate.month = today.getMonth() + 1;
-            originalInstallmentDate.year = today.getFullYear();
-        }
-    }
-
-    // Calcula a data da parcela atual
-    if (originalInstallmentDate.day !== null && currentParcelaAtual > 0 && currentTotalParcelas > 0) {
-        const baseDate = new Date(originalInstallmentDate.year, originalInstallmentDate.month - 1, originalInstallmentDate.day);
-        const targetDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + (currentParcelaAtual - 1), originalInstallmentDate.day);
-
-        // Lógica para lidar com o "overflow" do dia (ex: 31 de janeiro + 1 mês = 3 de março, se fevereiro tiver 28 dias)
-        if (targetDate.getDate() !== originalInstallmentDate.day) {
-            targetDate.setDate(0); // Vai para o último dia do mês anterior
-            targetDate.setMonth(targetDate.getMonth() + 1); // Volta para o mês atual, no último dia
+        .message-box-content button, .confirm-box-buttons button, .stop-recurring-modal-content button, .edit-recurring-choice-modal-content button, #auth-modal button { /* #auth-modal button adicionado aqui */
+            padding: 10px 25px;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
         }
 
-        const newDay = String(targetDate.getDate()).padStart(2, '0');
-        const newMonth = String(targetDate.getMonth() + 1).padStart(2, '0');
-        const newYear = targetDate.getFullYear();
-
-        diaInput.value = `${newYear}-${newMonth}-${newDay}`;
-        mesInput.value = parseInt(newMonth);
-        anoInput.value = newYear;
-    }
-}
-
-
-/**
- * Configura o listener em tempo real para a coleção de lançamentos do Firestore.
- */
-function setupFirestoreListener() {
-    if (!db || !lancamentosCollection) {
-        console.error("Firestore ou coleção não inicializados para o listener.");
-        return;
-    }
-    if (!currentHouseholdId) {
-        console.warn("setupFirestoreListener: currentHouseholdId não está definido, não será possível carregar os lançamentos.");
-        if (gastosTableBody) gastosTableBody.innerHTML = '';
-        if (noExpensesMessage) noExpensesMessage.classList.remove('hidden');
-        return;
-    }
-
-    // A consulta que requer o índice composto
-    const q = query(
-        lancamentosCollection,
-        where("householdId", "==", currentHouseholdId),
-        orderBy('ano', 'desc'),
-        orderBy('mes', 'desc'),
-        orderBy('dia', 'desc'),
-        orderBy('createdAt', 'desc') // Garante uma ordem única para resultados estáveis
-    );
-
-    // onSnapshot fornece atualizações em tempo real
-    if (typeof window.unsubscribeFirestore !== 'undefined' && window.unsubscribeFirestore !== null) {
-        window.unsubscribeFirestore(); // Desinscreve o listener anterior
-    }
-
-    window.unsubscribeFirestore = onSnapshot(q, (snapshot) => {
-        lancamentos = []; // Limpa os lançamentos existentes
-        const updatePromises = [];
-
-        snapshot.forEach((docSnap) => {
-            let data = docSnap.data();
-            let needsUpdate = false;
-
-            // Lógica de migração em leitura para lançamentos parcelados (garante originalPurchaseDia/Mes/Ano)
-            if (data.parcelaAtual && data.totalParcelas && data.parcelaAtual > 0 && data.totalParcelas > 0) {
-                if (data.originalPurchaseDia === undefined || data.originalPurchaseDia === null) {
-                    data.originalPurchaseDia = data.dia;
-                    data.originalPurchaseMes = data.mes;
-                    data.originalPurchaseAno = data.ano;
-                    needsUpdate = true;
-                }
-            }
-
-            // Garante que 'createdAt' é um Timestamp e o converte para um objeto Date se necessário
-            if (data.createdAt && typeof data.createdAt.toDate === 'function') {
-                data.createdAt = data.createdAt.toDate(); // Converte Timestamp para Date
-            } else if (!data.createdAt) {
-                data.createdAt = new Date(data.ano, data.mes - 1, data.dia, 12, 0, 0); // Cria um Date se ausente
-                needsUpdate = true;
-            }
-
-            lancamentos.push({ id: docSnap.id, ...data });
-
-            if (needsUpdate) {
-                const docRef = doc(db, lancamentosCollection.path, docSnap.id);
-                // Usar serverTimestamp() aqui causaria loops se o createdAt fosse a única coisa a ser atualizada.
-                // Mas como estamos migrando outros campos, podemos fazer um setDoc com merge.
-                // Se createdAt foi recém-criado, setamos com o valor que queremos.
-                setDoc(docRef, {
-                    originalPurchaseDia: data.originalPurchaseDia,
-                    originalPurchaseMes: data.originalPurchaseMes,
-                    originalPurchaseAno: data.originalPurchaseAno,
-                    createdAt: data.createdAt // Salva o Date de volta, Firestore converterá para Timestamp
-                }, { merge: true }).catch(e => console.error("Firestore: Erro ao atualizar lançamento durante a migração:", e));
-            }
-        });
-
-        renderLancamentos();
-        updateSummary();
-    }, (error) => {
-        console.error("Erro ao receber dados do Firestore: ", error);
-        showMessageBox("Erro de Sincronização", `Não foi possível sincronizar os dados com o Firestore. Por favor, verifique sua conexão ou as regras de segurança.`);
-        gastosTableBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-red-500">Erro ao carregar lançamentos.</td></tr>';
-    });
-}
-
-/**
- * Função assíncrona para categorizar a descrição usando a Gemini API.
- * @param {string} description A descrição do lançamento.
- * @returns {Promise<string|null>} A categoria sugerida ou null em caso de erro.
- */
-async function categorizeDescription(description) {
-    if (!description.trim()) {
-        return null;
-    }
-
-    const categories = ["Salário", "Renda Extra", "Investimento", "Alimentação", "Transporte", "Lazer", "Moradia", "Contas", "Educação", "Saúde", "Outros"];
-    const prompt = `Dada a seguinte descrição de um lançamento financeiro, categorize-o em uma das seguintes categorias: ${categories.join(', ')}. Retorne apenas o nome da categoria. Se a descrição não se encaixar claramente em nenhuma, retorne "Outros".
-    Descrição: "${description}"
-    Categoria:`;
-
-    let chatHistory = [];
-    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-    const payload = {
-        contents: chatHistory,
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "OBJECT",
-                properties: {
-                    "category": { "type": "STRING" }
-                }
-            }
+        .message-box-content button {
+            background-color: #007bff;
+            color: white;
+            border: none;
         }
-    };
-    const apiKey = ""; // API Key será injetada pelo ambiente
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-    if (categoryLoadingIndicator) {
-        categoryLoadingIndicator.classList.remove('hidden');
-        categoryLoadingIndicator.textContent = 'Categorizando...';
-    }
-
-    try {
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await response.json();
-
-        if (categoryLoadingIndicator) {
-            categoryLoadingIndicator.classList.add('hidden');
-            categoryLoadingIndicator.textContent = '';
+        .message-box-content button:hover {
+            background-color: #0056b3;
         }
 
-        if (result.candidates && result.candidates.length > 0 &&
-            result.candidates[0].content && result.candidates[0].content.parts &&
-            result.candidates[0].content.parts.length > 0) {
-
-            const jsonText = result.candidates[0].content.parts[0].text;
-            let parsedJson;
-            try {
-                parsedJson = JSON.parse(jsonText);
-            } catch (parseError) {
-                console.error("Erro ao fazer parse do JSON da API:", parseError);
-                console.error("Resposta bruta da API:", jsonText);
-                return null;
-            }
-
-            const suggestedCategory = parsedJson.category;
-            if (categories.includes(suggestedCategory)) {
-                return suggestedCategory;
-            } else {
-                console.warn(`Categoria sugerida pela IA "${suggestedCategory}" não é válida. Retornando "Outros".`);
-                return "Outros";
-            }
-        } else {
-            console.warn("Resposta da API Gemini não contém a estrutura esperada:", result);
-            return null;
-        }
-    } catch (error) {
-        console.error("Erro ao chamar a API Gemini para categorização:", error);
-        if (categoryLoadingIndicator) {
-            categoryLoadingIndicator.classList.add('hidden');
-            categoryLoadingIndicator.textContent = '';
-        }
-        return null;
-    }
-}
-
-/**
- * Função para atribuir todos os elementos DOM e configurar seus listeners.
- * Deve ser chamada apenas quando o DOM estiver completamente carregado e o Firebase estiver pronto.
- */
-function initializeUI() {
-    // Atribui e verifica todos os elementos DOM aqui
-    // É CRÍTICO que todos os IDs abaixo existam no seu HTML!
-    firebaseStatusDiv = document.getElementById('firebase-status');
-    authModal = document.getElementById('auth-modal');
-    loginForm = document.getElementById('login-form');
-    registerForm = document.getElementById('register-form');
-    showRegisterLink = document.getElementById('show-register');
-    showLoginLink = document.getElementById('show-login');
-    logoutButton = document.getElementById('logout-button');
-    dashboardSection = document.getElementById('dashboard');
-    loggedUserNameSpan = document.getElementById('logged-user-name');
-    googleLoginBtn = document.getElementById('google-login-btn');
-    forgotPasswordLink = document.getElementById('forgot-password-link');
-
-    lancamentoForm = document.getElementById('lancamentoForm');
-    diaInput = document.getElementById('dia');
-    mesInput = document.getElementById('mes');
-    anoInput = document.getElementById('ano');
-    descricaoInput = document.getElementById('descricao');
-    valorInput = document.getElementById('valor');
-    categoriaSelect = document.getElementById('categoria');
-    tipoEntradaRadio = document.getElementById('tipoEntrada');
-    tipoSaidaRadio = document.getElementById('tipoSaida');
-    addGastoBtn = document.getElementById('addGastoBtn');
-    gastosTableBody = document.getElementById('gastosTableBody');
-    totalEntradasSpan = document.getElementById('totalEntradas');
-    totalSaidasSpan = document.getElementById('totalSaidas');
-    mediaDiariaSpan = document.getElementById('mediaDiaria');
-    saldoMesSpan = document.getElementById('saldoMes');
-    filterMesGroup = document.getElementById('filterMesGroup');
-    filterMesAll = document.getElementById('filterMesAll');
-    filterAnoSelect = document.getElementById('filterAno');
-    noExpensesMessage = document.getElementById('no-expenses-message');
-    parcelaAtualSelect = document.getElementById('parcelaAtual');
-    totalParcelasSelect = document.getElementById('totalParcelas');
-    parcelaFieldsDiv = document.getElementById('parcelaFields');
-    userIdDisplay = document.getElementById('user-id-display');
-    joinHouseholdIdInput = document.getElementById('joinHouseholdIdInput');
-    setHouseholdIdBtn = document.getElementById('setHouseholdIdBtn');
-    selectAllCheckbox = document.getElementById('selectAllCheckbox');
-    deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-    isRecurringCheckbox = document.getElementById('isRecurring');
-    saldoStatusBar = document.getElementById('saldoBar'); // Corrigido ID para 'saldoBar'
-    saldoStatusText = document.getElementById('saldoStatus');
-    stopRecurringMonthsModalOverlay = document.getElementById('stopRecurringMonthsModalOverlay');
-    stopFromCurrentMonthCheckbox = document.getElementById('stopFromCurrentMonthCheckbox');
-    currentMonthAndYearSpan = document.getElementById('currentMonthAndYear');
-    specificMonthsSelectionDiv = document.getElementById('specificMonthsSelection');
-    stopRecurringYearSelect = document.getElementById('stopRecurringYearSelect');
-    cancelStopRecurringBtn = document.getElementById('cancelStopRecurringBtn');
-    confirmStopRecurringBtn = document.getElementById('confirmStopRecurringBtn');
-    searchBarInput = document.getElementById('searchBar');
-    categoryLoadingIndicator = document.getElementById('categoryLoadingIndicator');
-    editRecurringChoiceModalOverlay = document.getElementById('editRecurringChoiceModalOverlay');
-    editRecurringChoiceMessage = document.getElementById('editRecurringChoiceMessage');
-    applyToThisBtn = document.getElementById('applyToThisBtn');
-    applyToFutureBtn = document.getElementById('applyToFutureBtn');
-    cancelEditRecurringBtn = document.getElementById('cancelEditRecurringBtn');
-
-
-    // Tratamento especial para NodeList elements (classes)
-    monthFilterCheckboxes = document.querySelectorAll('.month-filter-checkbox');
-    monthStopCheckboxes = document.querySelectorAll('.month-stop-checkbox');
-
-
-    // Lógica para mostrar/esconder forms de autenticação
-    const showRegisterForm = () => {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'flex';
-    };
-
-    const showLoginForm = () => {
-        loginForm.style.display = 'flex';
-        registerForm.style.display = 'none';
-    };
-
-    // Adiciona Listeners para os botões de login/registro
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = loginForm['login-email'].value;
-            const password = loginForm['login-password'].value;
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                console.log('Login com e-mail/senha bem-sucedido!');
-            } catch (error) {
-                showMessageBox('Erro de Login', `Falha no login: ${error.message}`);
-                console.error("Erro de login:", error);
-            }
-        });
-    }
-
-    if (registerForm) {
-        registerForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = registerForm['register-name'].value;
-            const email = registerForm['register-email'].value;
-            const password = registerForm['register-password'].value;
-            try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                await userCredential.user.updateProfile({ displayName: name });
-                showMessageBox('Sucesso', 'Cadastro realizado com sucesso! Faça login.');
-                console.log('Cadastro de usuário bem-sucedido!');
-                showLoginForm(); // Volta para o formulário de login após o registro
-            } catch (error) {
-                showMessageBox('Erro de Cadastro', `Falha no cadastro: ${error.message}`);
-                console.error("Erro de cadastro:", error);
-            }
-        });
-    }
-
-    if (googleLoginBtn) {
-        googleLoginBtn.addEventListener('click', async () => {
-            const provider = new GoogleAuthProvider();
-            try {
-                await signInWithPopup(auth, provider);
-                console.log('Login com Google bem-sucedido!');
-            } catch (error) {
-                showMessageBox('Erro de Login com Google', `Falha no login com Google: ${error.message}`);
-                console.error("Erro de login com Google:", error);
-            }
-        });
-    }
-
-    if (logoutButton) {
-        logoutButton.addEventListener('click', async () => {
-            try {
-                await signOut(auth);
-                console.log('Logout bem-sucedido!');
-            } catch (error) {
-                console.error("Erro ao fazer logout:", error);
-            }
-        });
-    }
-
-    if (forgotPasswordLink) {
-        forgotPasswordLink.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const email = prompt("Por favor, digite seu e-mail para resetar a senha:"); // Usando prompt por simplicidade, ideal seria um modal
-            if (email) {
-                try {
-                    await sendPasswordResetEmail(auth, email);
-                    showMessageBox("Sucesso", "Um e-mail para resetar sua senha foi enviado!");
-                    console.log('E-mail de reset de senha enviado!');
-                } catch (error) {
-                    showMessageBox('Erro de Redefinição de Senha', `Erro ao resetar senha: ${error.message}`);
-                    console.error("Erro ao resetar senha:", error);
-                }
-            }
-        });
-    }
-
-    if (showRegisterLink) {
-        showRegisterLink.addEventListener('click', (e) => { e.preventDefault(); showRegisterForm(); });
-    }
-    if (showLoginLink) {
-        showLoginLink.addEventListener('click', (e) => { e.preventDefault(); showLoginForm(); });
-    }
-
-    // Inicializa valores padrão para o formulário de adição
-    const today = new Date();
-    const day = String(today.getDate()).padStart(2, '0');
-    const month = String(today.getMonth() + 1).padStart(2, '0'); // Meses são 0-indexedados
-    const year = today.getFullYear();
-    if (diaInput) diaInput.value = `${year}-${month}-${day}`;
-    if (mesInput) mesInput.value = today.getMonth() + 1;
-    if (anoInput) anoInput.value = today.getFullYear();
-
-    // Inicializa a data original da parcela com a data atual
-    originalInstallmentDate.day = today.getDate();
-    originalInstallmentDate.month = today.getMonth() + 1;
-    originalInstallmentDate.year = today.getFullYear();
-
-    // Preenche dinamicamente as opções de Ano para o formulário de adição
-    const currentYear = today.getFullYear();
-    let yearOptions = '<option value="">Selecione o Ano</option>';
-    for (let y = currentYear - 100; y <= currentYear + 100; y++) {
-        yearOptions += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`;
-    }
-    if (anoInput) anoInput.innerHTML = yearOptions;
-
-    // Preenche dinamicamente as opções de Ano para o filtro
-    let filterYearOptions = '<option value="all">Todos os Anos</option>';
-    for (let y = currentYear - 100; y <= currentYear + 100; y++) {
-        filterYearOptions += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`;
-    }
-    if (filterAnoSelect) filterAnoSelect.innerHTML = filterYearOptions;
-
-    // Preenche as opções de Parcelas
-    if (parcelaAtualSelect) parcelaAtualSelect.innerHTML = '<option value="0">-</option>';
-    if (totalParcelasSelect) totalParcelasSelect.innerHTML = '<option value="0">-</option>';
-    for (let i = 1; i <= 24; i++) { // Ampliado para 24 parcelas
-        const optionAtual = document.createElement('option');
-        optionAtual.value = i;
-        optionAtual.textContent = i;
-        if (parcelaAtualSelect) parcelaAtualSelect.appendChild(optionAtual);
-
-        const optionTotal = document.createElement('option');
-        optionTotal.value = i;
-        optionTotal.textContent = i;
-        if (totalParcelasSelect) totalParcelasSelect.appendChild(optionTotal);
-    }
-
-    // Define a visibilidade inicial dos campos de parcela: SEMPRE VISÍVEL por padrão
-    if (parcelaFieldsDiv) parcelaFieldsDiv.classList.remove('hidden');
-
-
-    // Adiciona Event Listeners
-    if (lancamentoForm) lancamentoForm.addEventListener('submit', addGastoBtnClickHandler);
-
-    // Listener para o diaInput para atualizar mês e ano automaticamente
-    if (diaInput && mesInput && anoInput) {
-        diaInput.addEventListener('change', () => {
-            const selectedDate = new Date(diaInput.value + 'T00:00:00');
-            if (!isNaN(selectedDate.getTime())) {
-                mesInput.value = selectedDate.getMonth() + 1;
-                anoInput.value = selectedDate.getFullYear();
-                if (parseInt(parcelaAtualSelect.value) === 1 && parseInt(totalParcelasSelect.value) > 0) {
-                    originalInstallmentDate.day = selectedDate.getDate();
-                    originalInstallmentDate.month = selectedDate.getMonth() + 1;
-                    originalInstallmentDate.year = selectedDate.getFullYear();
-                }
-            } else {
-                mesInput.value = '';
-                anoInput.value = '';
-            }
-        });
-    }
-
-    // Listener para o campo de descrição para categorização inteligente
-    let debounceTimer;
-    if (descricaoInput && categoriaSelect && categoryLoadingIndicator) {
-        descricaoInput.addEventListener('input', () => {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(async () => {
-                const description = descricaoInput.value;
-                const suggestedCategory = await categorizeDescription(description);
-                if (suggestedCategory) {
-                    const options = Array.from(categoriaSelect.options).map(option => option.value);
-                    if (options.includes(suggestedCategory)) {
-                        categoriaSelect.value = suggestedCategory;
-                    } else {
-                        categoriaSelect.value = 'Outros';
-                    }
-                }
-            }, 500);
-        });
-    }
-
-    // Adiciona listeners para os checkboxes de mês (filterMesGroup e monthFilterCheckboxes)
-    if (filterMesAll) {
-        filterMesAll.addEventListener('change', handleFilterMesAllChange);
-        filterMesAll.checked = true; // Marcar "Todos os Meses" por padrão ao carregar
-    }
-
-    if (monthFilterCheckboxes) {
-        monthFilterCheckboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', handleMonthFilterCheckboxChange);
-        });
-        updateMonthFilterCheckboxesState();
-    }
-
-
-    if (filterAnoSelect) {
-        filterAnoSelect.addEventListener('change', () => {
-            updateSummary();
-            renderLancamentos();
-        });
-    }
-
-    if (selectAllCheckbox) selectAllCheckbox.addEventListener('change', handleSelectAllChange);
-
-    if (deleteSelectedBtn) {
-        deleteSelectedBtn.addEventListener('click', async () => {
-            const confirmation = await showConfirmBox('Confirmação', 'Tem certeza que deseja excluir os lançamentos selecionados?');
-            if (confirmation) {
-                deleteSelectedLancamentos();
-            }
-        });
-    }
-
-    if (isRecurringCheckbox && parcelaAtualSelect && totalParcelasSelect) {
-        isRecurringCheckbox.addEventListener('change', (event) => {
-            if (event.target.checked) {
-                parcelaAtualSelect.value = '0';
-                totalParcelasSelect.value = '0';
-            }
-            updateInstallmentDateFields();
-        });
-    }
-
-    // Listeners para atualizar a data quando parcelaAtual ou totalParcelas mudam
-    if (parcelaAtualSelect) parcelaAtualSelect.addEventListener('change', updateInstallmentDateFields);
-    if (totalParcelasSelect) totalParcelasSelect.addEventListener('change', updateInstallmentDateFields);
-
-    // Listeners para o modal de parar recorrência
-    if (stopFromCurrentMonthCheckbox && specificMonthsSelectionDiv && monthStopCheckboxes) {
-        stopFromCurrentMonthCheckbox.addEventListener('change', (event) => {
-            if (event.target.checked) {
-                specificMonthsSelectionDiv.classList.add('opacity-50', 'pointer-events-none');
-                monthStopCheckboxes.forEach(cb => cb.checked = false);
-            } else {
-                specificMonthsSelectionDiv.classList.remove('opacity-50', 'pointer-events-none');
-            }
-        });
-    }
-    if (cancelStopRecurringBtn) cancelStopRecurringBtn.addEventListener('click', () => {
-        stopRecurringMonthsModalOverlay.classList.add('hidden');
-    });
-    if (confirmStopRecurringBtn) confirmStopRecurringBtn.addEventListener('click', handleStopRecurringConfirmation);
-
-    // Listener para o botão "Definir ID"
-    if (setHouseholdIdBtn && joinHouseholdIdInput) {
-        setHouseholdIdBtn.addEventListener('click', () => {
-            const newHouseholdId = joinHouseholdIdInput.value.trim();
-            if (newHouseholdId) {
-                currentHouseholdId = newHouseholdId;
-                localStorage.setItem('savedHouseholdId', currentHouseholdId);
-                showMessageBox('Sucesso', `ID da Família/Casa alterado para: ${currentHouseholdId}`);
-                if (userIdDisplay) userIdDisplay.textContent = `ID do Usuário: ${userId} (Household: ${currentHouseholdId})`;
-                setupFirestoreListener(); // Re-configura o listener com o novo ID
-            } else {
-                showMessageBox('Aviso', 'Por favor, insira um ID de Família/Casa válido.');
-            }
-        });
-    }
-
-    // Listener para o campo de busca
-    if (searchBarInput) {
-        searchBarInput.addEventListener('input', () => {
-            renderLancamentos();
-            updateSummary();
-        });
-    }
-
-
-    // Listeners para o modal de escolha de edição recorrente/parcelada
-    if (applyToThisBtn && applyToFutureBtn && cancelEditRecurringBtn && editRecurringChoiceModalOverlay) {
-        applyToThisBtn.addEventListener('click', () => {
-            if (pendingEditData) {
-                applyEditToSingleLancamento(
-                    pendingEditData.id,
-                    pendingEditData.field,
-                    pendingEditData.newValue,
-                    pendingEditData.currentLancamento
-                );
-                pendingEditData = null;
-            }
-            editRecurringChoiceModalOverlay.classList.add('hidden');
-        });
-        applyToFutureBtn.addEventListener('click', () => {
-            if (pendingEditData) {
-                applyEditToSeriesLancamentos(
-                    pendingEditData.id,
-                    pendingEditData.field,
-                    pendingEditData.newValue,
-                    pendingEditData.currentLancamento,
-                    pendingEditData.type
-                );
-                pendingEditData = null;
-            }
-            editRecurringChoiceModalOverlay.classList.add('hidden');
-        });
-        cancelEditRecurringBtn.addEventListener('click', () => {
-            // Restore original cell content if user cancels propagation
-            if (pendingEditData && pendingEditData.originalCellContent) {
-                 const cellToRestore = document.querySelector(`[data-id="${pendingEditData.id}"][data-field="${pendingEditData.field}"]`);
-                 if(cellToRestore) cellToRestore.innerHTML = pendingEditData.originalCellContent;
-            }
-            pendingEditData = null;
-            editRecurringChoiceModalOverlay.classList.add('hidden');
-        });
-    }
-}
-
-
-// Inicializa o Firebase e, em seguida, a UI após a autenticação
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        if (!firebaseConfig || Object.keys(firebaseConfig).length === 0 || !firebaseConfig.apiKey || !firebaseConfig.projectId) {
-            showMessageBox("Erro de Configuração", "As configurações do Firebase estão ausentes ou incompletas. Por favor, preencha as credenciais no script.js.");
-            console.error("Firebase config is empty or invalid:", firebaseConfig);
-            return; // Interrompe a inicialização se a config for inválida
+        .confirm-box-buttons, .stop-recurring-modal-buttons, .edit-recurring-choice-modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
         }
 
-        app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
+        .confirm-box-buttons .confirm-yes, .stop-recurring-modal-buttons .confirm-btn-primary, .edit-recurring-choice-modal-buttons .confirm-btn-primary {
+            background-color: #28a745;
+            color: white;
+            border: none;
+        }
+        .confirm-box-buttons .confirm-yes:hover, .stop-recurring-modal-buttons .confirm-btn-primary:hover, .edit-recurring-choice-modal-buttons .confirm-btn-primary:hover {
+            background-color: #218838;
+        }
 
-        // Exibe o modal de autenticação por padrão
-        if (authModal) authModal.style.display = 'flex';
-        if (dashboardSection) dashboardSection.classList.add('hidden'); // Garante que o dashboard está escondido
+        .confirm-box-buttons .confirm-no, .stop-recurring-modal-buttons .cancel-btn, .edit-recurring-choice-modal-buttons .cancel-btn {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+        }
+        .confirm-box-buttons .confirm-no:hover, .stop-recurring-modal-buttons .cancel-btn:hover, .edit-recurring-choice-modal-buttons .cancel-btn:hover {
+            background-color: #c82333;
+        }
 
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                // Esconde o modal de autenticação e mostra o dashboard
-                if (authModal) authModal.style.display = 'none';
-                if (dashboardSection) dashboardSection.classList.remove('hidden');
+        /* Classes de utilidade para mostrar/esconder */
+        .hidden {
+            display: none !important;
+        }
 
-                // Carrega o nome do usuário para exibição
-                let userName = user.displayName || user.email || 'Usuário Anônimo';
-                if (loggedUserNameSpan) loggedUserNameSpan.textContent = `Olá, ${userName}!`;
-                if (logoutButton) logoutButton.classList.remove('hidden');
+        /* Cores para status do saldo */
+        .text-green-800 { color: #166534; }
+        .text-red-700 { color: #b91c1c; }
+        .bg-green-500 { background-color: #22c55e; }
+        .bg-red-500 { background-color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div id="firebase-status" class="text-center py-2 text-sm text-gray-700 bg-gray-200">Conectando ao Firebase...</div>
 
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-6 text-center text-white">Acesse sua Conta</h2>
 
-            } else {
-                // Tenta autenticação anônima se não houver utilizador logado
-                try {
-                    if (initialAuthToken) {
-                        const userCredential = await signInWithCustomToken(auth, initialAuthToken);
-                        userId = userCredential.user.uid;
-                        showMessageBox('Autenticação', 'Autenticado com token personalizado.');
-                    } else {
-                        const userCredential = await signInAnonymously(auth);
-                        userId = userCredential.user.uid;
-                        showMessageBox('Autenticação', 'Autenticado anonimamente. Seus dados estão vinculados a este dispositivo.');
-                    }
-                     // Esconde o modal de autenticação e mostra o dashboard
-                     if (authModal) authModal.style.display = 'none';
-                     if (dashboardSection) dashboardSection.classList.remove('hidden');
-                     // Para usuários anônimos, definir um nome genérico
-                     if (loggedUserNameSpan) loggedUserNameSpan.textContent = `Olá, Usuário Anônimo!`;
-                     if (logoutButton) logoutButton.classList.remove('hidden');
+            <!-- Login Form -->
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="login-email" class="block text-sm font-medium text-gray-300">E-mail</label>
+                    <input type="email" id="login-email" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-white" required>
+                </div>
+                <div>
+                    <label for="login-password" class="block text-sm font-medium text-gray-300">Senha</label>
+                    <input type="password" id="login-password" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-white" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200">Entrar</button>
+                <div class="text-center text-sm">
+                    <a href="#" id="forgot-password-link" class="text-blue-400 hover:underline">Esqueceu a senha?</a>
+                </div>
+            </form>
 
-                } catch (error) {
-                    console.error("Erro de autenticação:", error);
-                    userId = crypto.randomUUID(); // Fallback para um ID aleatório
-                    showMessageBox("Erro de Autenticação", `Não foi possível autenticar o utilizador. Usando um ID temporário. Erro: ${error.message}`);
-                    // Se a autenticação falhar, mantém o modal de autenticação visível
-                    if (authModal) authModal.style.display = 'flex';
-                    if (dashboardSection) dashboardSection.classList.add('hidden');
-                    if (loggedUserNameSpan) loggedUserNameSpan.textContent = '';
-                    if (logoutButton) logoutButton.classList.add('hidden');
-                }
-            }
+            <!-- Register Form (hidden by default) -->
+            <form id="register-form" class="space-y-4 hidden">
+                <div>
+                    <label for="register-name" class="block text-sm font-medium text-gray-300">Nome</label>
+                    <input type="text" id="register-name" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-white" required>
+                </div>
+                <div>
+                    <label for="register-email" class="block text-sm font-medium text-gray-300">E-mail</label>
+                    <input type="email" id="register-email" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-white" required>
+                </div>
+                <div>
+                    <label for="register-password" class="block text-sm font-medium text-gray-300">Senha</label>
+                    <input type="password" id="register-password" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-white" required>
+                </div>
+                <button type="submit" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition duration-200">Registrar</button>
+            </form>
 
-            const savedHouseholdId = localStorage.getItem('savedHouseholdId');
-            if (savedHouseholdId) {
-                currentHouseholdId = savedHouseholdId;
-            } else {
-                currentHouseholdId = userId; // Usa o UID do Firebase como Household ID padrão
-                localStorage.setItem('savedHouseholdId', currentHouseholdId);
-            }
+            <div class="mt-6 text-center text-sm">
+                <p class="text-gray-400">
+                    Não tem uma conta? <a href="#" id="show-register" class="text-blue-400 hover:underline">Registre-se</a>
+                </p>
+                <p class="text-gray-400 mt-2">
+                    Já tem uma conta? <a href="#" id="show-login" class="text-blue-400 hover:underline">Entrar</a>
+                </p>
+            </div>
+            <div class="mt-6 text-center">
+                <button id="google-login-btn" class="w-full bg-white text-gray-800 py-2 px-4 rounded-md shadow-sm hover:bg-gray-100 flex items-center justify-center transition duration-200">
+                    <!-- Google Logo embutido como SVG Data URI -->
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='20px' height='20px'%3E%3Cpath fill='%23FFC107' d='M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.083 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 8.065 3.09l5.661-5.661C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z'/%3E%3Cpath fill='%23FF3D00' d='M6.306 14.691L11.649 18.06C13.626 14.887 17.694 12 24 12c3.059 0 5.842 1.154 8.065 3.09l5.661-5.661C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20c0-1.341-.138-2.65-.389-3.917z'/%3E%3Cpath fill='%234CAF50' d='M24 44c5.166 0 9.86-1.97 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.734L4.823 35.165C8.924 39.73 15.901 44 24 44z'/%3E%3Cpath fill='%231976D2' d='M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.083 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 8.065 3.09l5.661-5.661C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20c0-1.341-.138-2.65-.389-3.917z'/%3E%3C/svg%3E" alt="Google Logo" class="w-5 h-5 mr-2">
+                    Entrar com Google
+                </button>
+            </div>
+        </div>
+    </div>
 
-            initializeUI(); // Chama a função para atribuir elementos e configurar listeners
+    <div class="container mx-auto bg-white p-8 rounded-3xl shadow-2xl max-w-5xl w-full my-8 md:my-12 border-4 border-blue-300 transform hover:scale-[1.005] transition-transform duration-300 ease-in-out">
+        <header class="bg-white p-4 flex justify-between items-center shadow-md rounded-xl mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">Controle Financeiro</h1>
+                <span id="logged-user-name" class="text-gray-500 text-sm"></span>
+            </div>
+            <div>
+                <button id="logout-button" class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition duration-200 hidden">Sair</button>
+            </div>
+        </header>
 
-            if (userIdDisplay) userIdDisplay.textContent = `ID do Usuário: ${userId} (Household: ${currentHouseholdId})`;
+        <main id="dashboard" class="hidden">
+            <!-- Household ID Section -->
+            <section class="bg-yellow-50 p-6 rounded-xl border border-yellow-200 shadow-md mb-6">
+                <h2 class="text-xl md:text-2xl font-bold mb-4 text-yellow-800 text-center">Gerenciar ID da Família/Grupo</h2>
+                <p id="user-id-display" class="text-sm md:text-base font-semibold text-gray-600 text-center mb-4 font-mono bg-yellow-100 p-3 rounded-lg border border-yellow-200 shadow-sm">ID do Usuário: Carregando...</p>
+                <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <input type="text" id="joinHouseholdIdInput" placeholder="Digite a chave da família/grupo (ex: 123)" class="flex-grow px-4 py-2 bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 shadow-sm transition-colors duration-200">
+                    <button id="setHouseholdIdBtn" class="w-full sm:w-auto bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 transition-colors duration-300 shadow-md flex-shrink-0">Definir Chave</button>
+                </div>
+            </section>
 
-            lancamentosCollection = collection(db, `artifacts/${appId}/public/data/lancamentos`);
-            isAuthReady = true;
+            <!-- Transaction Form -->
+            <section class="p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-lg transform hover:scale-[1.005] transition-transform duration-200 ease-out mb-6">
+                <h2 class="text-2xl md:text-3xl font-bold mb-5 text-blue-800 text-center">Adicionar Novo Lançamento</h2>
+                <form id="lancamentoForm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4 md:gap-6">
+                        <div class="flex flex-col">
+                            <label for="dia" class="block text-sm font-bold text-gray-700 mb-1">Data</label>
+                            <input type="date" id="dia" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                        </div>
+                        <div class="flex flex-col hidden"> <!-- Escondido, diaInput controla mês/ano -->
+                            <label for="mes" class="block text-sm font-bold text-gray-700 mb-1">Mês</label>
+                            <select id="mes" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                                <option value="">Selecione o Mês</option>
+                                <option value="1">Janeiro</option>
+                                <option value="2">Fevereiro</option>
+                                <option value="3">Março</option>
+                                <option value="4">Abril</option>
+                                <option value="5">Maio</option>
+                                <option value="6">Junho</option>
+                                <option value="7">Julho</option>
+                                <option value="8">Agosto</option>
+                                <option value="9">Setembro</option>
+                                <option value="10">Outubro</option>
+                                <option value="11">Novembro</option>
+                                <option value="12">Dezembro</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col hidden"> <!-- Escondido, diaInput controla mês/ano -->
+                            <label for="ano" class="block text-sm font-bold text-gray-700 mb-1">Ano</label>
+                            <select id="ano" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                                <option value="">Selecione o Ano</option>
+                                <!-- Anos serão preenchidos via JavaScript -->
+                            </select>
+                        </div>
+                        <div class="flex flex-col">
+                            <label for="descricao" class="block text-sm font-bold text-gray-700 mb-1">Descrição</label>
+                            <input type="text" id="descricao" placeholder="Ex: Salário, Almoço" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                            <span id="categoryLoadingIndicator" class="text-xs text-gray-500 mt-1 hidden"></span>
+                        </div>
+                        <div class="flex flex-col">
+                            <label for="valor" class="block text-sm font-bold text-gray-700 mb-1">Valor</label>
+                            <input type="number" id="valor" placeholder="Ex: 25.50" step="0.01" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                        </div>
+                        <div class="flex flex-col">
+                            <label for="categoria" class="block text-sm font-bold text-gray-700 mb-1">Categoria</label>
+                            <select id="categoria" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                                <option value="">Selecione a Categoria</option>
+                                <option value="Salário">Salário</option>
+                                <option value="Renda Extra">Renda Extra</option>
+                                <option value="Investimento">Investimento</option>
+                                <option value="Alimentação">Alimentação</option>
+                                <option value="Transporte">Transporte</option>
+                                <option value="Lazer">Lazer</option>
+                                <option value="Moradia">Moradia</option>
+                                <option value="Contas">Contas (água, luz, internet)</option>
+                                <option value="Educação">Educação</option>
+                                <option value="Saúde">Saúde</option>
+                                <option value="Outros">Outros</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col">
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Tipo</label>
+                            <div class="flex flex-row items-center gap-x-3 h-full">
+                                <input type="radio" id="tipoEntrada" name="tipo" value="entrada" class="form-radio h-5 w-5 text-green-600 focus:ring-green-500" checked>
+                                <label for="tipoEntrada" class="text-gray-800 text-base font-bold">Entrada</label>
+                                <input type="radio" id="tipoSaida" name="tipo" value="saida" class="form-radio h-5 w-5 text-red-600 focus:ring-red-500">
+                                <label for="tipoSaida" class="text-gray-800 text-base font-bold">Saída</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="parcelaFields" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+                        <div class="flex flex-col">
+                            <label for="parcelaAtual" class="block text-sm font-bold text-gray-700 mb-1">Parcela Atual</label>
+                            <select id="parcelaAtual" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
+                                <option value="0">-</option>
+                                <!-- Opções de 1 a 24 serão preenchidas via JavaScript -->
+                            </select>
+                        </div>
+                        <div class="flex flex-col">
+                            <label for="totalParcelas" class="block text-sm font-bold text-gray-700 mb-1">Total de Parcelas</label>
+                            <select id="totalParcelas" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
+                                <option value="0">-</option>
+                                <!-- Opções de 1 a 24 serão preenchidas via JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center">
+                        <input type="checkbox" id="isRecurring" class="form-checkbox h-5 w-5 text-purple-600 rounded">
+                        <label for="isRecurring" class="ml-2 text-base font-bold text-gray-700">Cobrança Recorrente</label>
+                    </div>
+                    <button type="submit" id="addGastoBtn" class="mt-8 w-full bg-blue-600 text-white p-3.5 rounded-lg hover:bg-blue-700 transition-all duration-300 shadow-lg text-lg font-semibold transform hover:-translate-y-0.5">Adicionar Lançamento</button>
+                </form>
+            </section>
 
-            setupFirestoreListener();
-        });
+            <!-- Filtro de Mês e Ano para o Resumo -->
+            <section class="mb-8 p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200 shadow-md">
+                <h2 class="text-2xl font-bold mb-4 text-purple-800 text-center">Filtrar Resumo</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex flex-col">
+                        <label class="block text-lg font-bold text-gray-700 mb-2">Mês:</label>
+                        <div id="filterMesGroup" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2 border border-gray-300 rounded-lg bg-white shadow-sm max-h-48 overflow-y-auto">
+                            <!-- Checkbox "Selecionar Todos os Meses" -->
+                            <div class="flex items-center">
+                                <input type="checkbox" id="filterMesAll" class="form-checkbox h-4 w-4 text-purple-600 rounded">
+                                <label for="filterMesAll" class="ml-2 text-sm font-semibold text-gray-700">Todos os Meses</label>
+                            </div>
+                            <!-- Meses serão preenchidos via JavaScript como checkboxes individuais -->
+                            <div class="flex items-center"><input type="checkbox" id="filterMes1" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="1"><label for="filterMes1" class="ml-2 text-sm text-gray-700">Janeiro</label></div>
+                            <div class="flex items-center"><input type="checkbox" id="filterMes2" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="2"><label for="filterMes2" class="ml-2 text-sm text-gray-700">Fevereiro</label></div>
+                            <div class="flex items-center"><input type="checkbox" id="filterMes3" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="3"><label for="filterMes3" class="ml-2 text-sm text-gray-700">Março</label></div>
+                            <div class="flex items-center"><input type="checkbox" id="filterMes4" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="4"><label for="filterMes4" class="ml-2 text-sm text-gray-700">Abril</label></div>
+                            <div class="flex items-center"><input type="checkbox" id="filterMes5" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="5"><label for="filterMes5" class="ml-2 text-sm text-gray-700">Maio</label></div>
+                            <div class="flex items-center"><input type="checkbox" id="filterMes6" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="6"><label for="filterMes6" class="ml-2 text-sm text-gray-700">Junho</label></div>
+                            <div class="flex items-center"><input type="checkbox" id="filterMes7" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="7"><label for="filterMes7" class="ml-2 text-sm text-gray-700">Julho</label></div>
+                            <div class="flex items-center"><input type="checkbox" id="filterMes8" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="8"><label for="filterMes8" class="ml-2 text-sm text-gray-700">Agosto</label></div>
+                            <div class="flex items-center"><input type="checkbox" id="filterMes9" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="9"><label for="filterMes9" class="ml-2 text-sm text-gray-700">Setembro</label></div>
+                            <div class="flex items-center"><input type="checkbox" id="filterMes10" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="10"><label for="filterMes10" class="ml-2 text-sm text-gray-700">Outubro</label></div>
+                            <div class="flex items-center"><input type="checkbox" id="filterMes11" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="11"><label for="filterMes11" class="ml-2 text-sm text-gray-700">Novembro</label></div>
+                            <div class="flex items-center"><input type="checkbox" id="filterMes12" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="12"><label for="filterMes12" class="ml-2 text-sm text-gray-700">Dezembro</label></div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col">
+                        <label for="filterAno" class="block text-lg font-bold text-gray-700 mb-2">Ano:</label>
+                        <select id="filterAno" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+                            <option value="all">Todos os Anos</option>
+                            <!-- Anos serão preenchidos via JavaScript -->
+                        </select>
+                    </div>
+                </div>
+                <!-- Campo de busca -->
+                <div class="mt-4">
+                    <label for="searchBar" class="block text-lg font-bold text-gray-700 mb-2">Buscar:</label>
+                    <input type="text" id="searchBar" placeholder="Pesquisar por descrição, categoria ou valor" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+                </div>
+            </section>
 
-    } catch (error) {
-        console.error("Erro fatal ao inicializar aplicação:", error);
-        const userIdDisplayFallback = document.getElementById('user-id-display');
-        if (userIdDisplayFallback) userIdDisplayFallback.textContent = `Erro ao carregar ID do Usuário.`;
-        showMessageBox("Erro Crítico", 'Erro ao carregar a aplicação. Por favor, tente novamente mais tarde. Verifique o console do navegador para mais detalhes.');
-        if (authModal) authModal.style.display = 'flex'; // Mantém o modal visível em caso de erro crítico
-        if (dashboardSection) dashboardSection.classList.add('hidden');
-    }
-});
+            <!-- Tabela de Lançamentos -->
+            <section class="mb-8 overflow-x-auto rounded-xl shadow-lg border border-gray-200 bg-white">
+                <h2 class="text-2xl md:text-3xl font-bold mb-4 text-gray-800 p-6 bg-gray-50 border-b border-gray-200 rounded-t-xl text-center">Seus Lançamentos</h2>
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider rounded-tl-xl">
+                                <input type="checkbox" id="selectAllCheckbox" class="form-checkbox h-4 w-4 text-blue-600 rounded">
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Data Compra Original</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Ações Recorrência</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Descrição</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Valor (R$)</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Categoria</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Tipo</th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider rounded-tr-xl">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="gastosTableBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Linhas de lançamentos serão inseridas aqui pelo JavaScript -->
+                    </tbody>
+                </table>
+                <div id="no-expenses-message" class="text-center py-8 text-gray-500 italic hidden">Nenhum lançamento registrado ainda. Adicione seu primeiro lançamento!</div>
+            </section>
+
+            <!-- Botão Excluir Selecionados -->
+            <button id="deleteSelectedBtn" class="mt-4 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 shadow-lg text-lg font-semibold transform hover:-translate-y-0.5 hidden">Excluir Selecionados</button>
+
+            <!-- Resumo Mensal -->
+            <section class="mt-8 p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 shadow-lg transform hover:scale-[1.005] transition-transform duration-200 ease-out">
+                <h2 class="text-2xl md:text-3xl font-bold mb-4 text-green-800 text-center">Resumo Mensal</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-lg">
+                    <p class="text-gray-700 mb-2 font-bold">Total de Entradas: <span id="totalEntradas" class="font-extrabold text-green-700 text-xl">R$ 0.00</span></p>
+                    <p class="text-gray-700 mb-2 font-bold">Total de Saídas: <span id="totalSaidas" class="font-extrabold text-red-700 text-xl">R$ 0.00</span></p>
+                    <p class="text-gray-700 mb-2 font-bold">Média de Gasto Diário: <span id="mediaDiaria" class="font-extrabold text-red-700 text-xl">R$ 0.00</span></p>
+                    <p class="text-gray-800 text-2xl font-extrabold col-span-full">Saldo do Mês: <span id="saldoMes" class="font-extrabold text-green-800">R$ 0.00</span></p>
+                </div>
+                <!-- Barra de Status do Saldo -->
+                <div class="w-full bg-gray-200 rounded-full h-4 mt-4 overflow-hidden">
+                    <div id="saldoBar" class="h-4 rounded-full transition-all duration-500" style="width: 0%;"></div>
+                </div>
+                <p id="saldoStatus" class="text-center font-bold text-lg mt-2 text-gray-700">Saldo: R$ 0.00</p>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modais (Message, Confirm, Stop Recurring, Edit Recurring Choice) -->
+
+    <!-- Modal de Mensagem Padrão -->
+    <div id="messageBoxOverlay" class="message-box-overlay hidden">
+        <div class="message-box-content">
+            <h3 id="messageBoxTitle"></h3>
+            <p id="messageBoxMessage"></p>
+            <button id="messageBoxOkBtn">OK</button>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação Padrão -->
+    <div id="confirmBoxOverlay" class="confirm-box-overlay hidden">
+        <div class="confirm-box-content">
+            <h3 id="confirmBoxTitle"></h3>
+            <p id="confirmBoxMessage"></p>
+            <div class="confirm-box-buttons">
+                <button id="confirmBoxYesBtn" class="confirm-yes">Sim</button>
+                <button id="confirmBoxNoBtn" class="confirm-no">Não</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Parar Recorrência -->
+    <div id="stopRecurringMonthsModalOverlay" class="stop-recurring-modal-overlay hidden">
+        <div class="stop-recurring-modal-content">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Parar Cobrança Recorrente</h3>
+            <p class="text-gray-700 mb-4">Selecione como deseja parar esta cobrança recorrente:</p>
+
+            <div class="flex items-center mb-3">
+                <input type="checkbox" id="stopFromCurrentMonthCheckbox" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                <label for="stopFromCurrentMonthCheckbox" class="ml-2 text-base font-bold text-gray-700">
+                    Parar a partir de <span id="currentMonthAndYear" class="font-semibold"></span> e futuros.
+                </label>
+            </div>
+
+            <div id="specificMonthsSelection" class="mt-4 p-3 border border-gray-300 rounded-lg bg-gray-50 text-left">
+                <p class="text-sm font-semibold text-gray-700 mb-2">Ou selecione meses específicos para parar:</p>
+                <div class="grid grid-cols-3 gap-2">
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="1"><span class="ml-2 text-sm text-gray-700">Jan</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="2"><span class="ml-2 text-sm text-gray-700">Fev</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="3"><span class="ml-2 text-sm text-gray-700">Mar</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="4"><span class="ml-2 text-sm text-gray-700">Abr</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="5"><span class="ml-2 text-sm text-gray-700">Mai</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="6"><span class="ml-2 text-sm text-gray-700">Jun</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="7"><span class="ml-2 text-sm text-gray-700">Jul</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="8"><span class="ml-2 text-sm text-gray-700">Ago</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="9"><span class="ml-2 text-sm text-gray-700">Set</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="10"><span class="ml-2 text-sm text-gray-700">Out</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="11"><span class="ml-2 text-sm text-gray-700">Nov</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="12"><span class="ml-2 text-sm text-gray-700">Dez</span></label>
+                </div>
+                <div class="mt-3">
+                    <label for="stopRecurringYearSelect" class="block text-sm font-bold text-gray-700 mb-1">Ano:</label>
+                    <select id="stopRecurringYearSelect" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+                        <!-- Anos serão preenchidos via JavaScript -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="stop-recurring-modal-buttons mt-6">
+                <button id="confirmStopRecurringBtn" class="confirm-btn-primary">Confirmar</button>
+                <button id="cancelStopRecurringBtn" class="cancel-btn">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Escolha de Edição Recorrente/Parcelada -->
+    <div id="editRecurringChoiceModalOverlay" class="edit-recurring-choice-modal-overlay hidden">
+        <div class="edit-recurring-choice-modal-content">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Editar Lançamento</h3>
+            <p class="text-gray-700 mb-6" id="editRecurringChoiceMessage">Este é um lançamento recorrente ou parcelado. Como você gostaria de aplicar esta edição?</p>
+            <div class="edit-recurring-choice-modal-buttons">
+                <button id="applyToThisBtn" class="confirm-btn-primary">Apenas Este</button>
+                <button id="applyToFutureBtn" class="confirm-btn-primary">Este e Futuros</button>
+                <button id="cancelEditRecurringBtn" class="cancel-btn">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seu script principal (agora carregado como módulo) -->
+    <script type="module" src="app.js" defer></script>
+</body>
+</html>

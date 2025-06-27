@@ -10,12 +10,12 @@ import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signO
 // --- Configuração do Firebase ---
 // Suas chaves de configuração do projeto Firebase
 const firebaseConfig = {
-    apiKey: "AIzaSyD998NH9Vco8Yfk-7n3XgMjLW-LkQkAgLA",
+    apiKey: "YOUR_API_KEY", // <-- SUBSTITUA PELA SUA CHAVE REAL!
     authDomain: "controle-financeiro-c1a0b.firebaseapp.com",
     projectId: "controle-financeiro-c1a0b",
     storageBucket: "controle-financeiro-c1a0b.firebasestorage.app",
-    messagingSenderId: "471645962387",
-    appId: "1:471645962387:web:fd500fdeb62475596c0d66"
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // <-- SUBSTITUA PELA SUA CHAVE REAL!
+    appId: "YOUR_APP_ID" // <-- SUBSTITUA PELA SUA CHAVE REAL!
 };
 
 // --- Inicializa o Firebase e obtém as instâncias de serviço ---
@@ -31,7 +31,7 @@ try {
 
     firebaseStatusDiv.textContent = 'Conexão Firebase: OK';
     firebaseStatusDiv.classList.add('success');
-    console.log('Firebase inicializado com sucesso.');
+    console.log('Firebase inicializado com sucesso.'); //
 } catch (error) {
     firebaseStatusDiv.textContent = `Conexão Firebase: ERRO - ${error.message}`;
     firebaseStatusDiv.classList.add('error');
@@ -58,7 +58,7 @@ const transactionCategorySelect = document.getElementById('transaction-category'
 const transactionRecurringCheckbox = document.getElementById('transaction-recurring');
 const transactionDescriptionInput = document.getElementById('transaction-description');
 const transactionDateInput = document.getElementById('transaction-date');
-const transactionTotalParcelsSelect = document.getElementById('transaction-total-parcels'); // Corrigido ID
+const transactionTotalParcelsSelect = document.getElementById('transaction-total-parcels');
 const transactionSubmitButton = document.getElementById('transaction-submit-btn');
 const cancelEditButton = document.getElementById('cancel-edit-btn');
 
@@ -71,14 +71,14 @@ const mediaGastoDiarioSpan = document.getElementById('media-gasto-diario');
 const saldoMesSpan = document.getElementById('saldo-mes');
 
 // Filtros
-const filterYearSelect = document.getElementById('filter-year');
+const filterYearSelect = document.getElementById('filter-year'); //
 const filterDescriptionInput = document.getElementById('filter-description');
-const monthsCheckboxesDiv = document.querySelector('.months-checkboxes');
+const monthsCheckboxesDiv = document.querySelector('.months-checkboxes'); //
 
 // Novos elementos para householdId
-const householdIdInput = document.getElementById('household-id-input');
-const setHouseholdIdBtn = document.getElementById('set-household-id-btn');
-const currentHouseholdDisplay = document.getElementById('current-household-display');
+const householdIdInput = document.getElementById('household-id-input'); //
+const setHouseholdIdBtn = document.getElementById('set-household-id-btn'); //
+const currentHouseholdDisplay = document.getElementById('current-household-display'); //
 
 let currentUserId = null;
 let currentUserName = null;
@@ -88,7 +88,7 @@ let unsubscribeSnapshot = null; // Para desinscrever do listener do Firestore
 
 // --- Funções de Autenticação ---
 // Listener de estado de autenticação
-onAuthStateChanged(auth, (user) => { // AGORA 'auth' ESTÁ DEFINIDA!
+onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUserId = user.uid;
         currentUserName = user.displayName || user.email;
@@ -128,7 +128,7 @@ loginForm.addEventListener('submit', async (e) => {
     const email = loginForm['login-email'].value;
     const password = loginForm['login-password'].value;
     try {
-        await signInWithEmailAndPassword(auth, email, password); // Usando 'auth' importado
+        await signInWithEmailAndPassword(auth, email, password);
         console.log('Login com e-mail/senha bem-sucedido!');
     } catch (error) {
         alert(`Erro de login: ${error.message}`);
@@ -143,7 +143,7 @@ registerForm.addEventListener('submit', async (e) => {
     const email = registerForm['register-email'].value;
     const password = registerForm['register-password'].value;
     try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password); // Usando 'auth' importado
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await userCredential.user.updateProfile({ displayName: name });
         alert('Cadastro realizado com sucesso! Faça login.');
         console.log('Cadastro de usuário bem-sucedido!');
@@ -158,7 +158,7 @@ registerForm.addEventListener('submit', async (e) => {
 googleLoginBtn.addEventListener('click', async () => {
     const provider = new GoogleAuthProvider();
     try {
-        await signInWithPopup(auth, provider); // Usando 'auth' importado
+        await signInWithPopup(auth, provider);
         console.log('Login com Google bem-sucedido!');
     } catch (error) {
         alert(`Erro de login com Google: ${error.message}`);
@@ -169,7 +169,7 @@ googleLoginBtn.addEventListener('click', async () => {
 // Manipulador de Logout
 logoutButton.addEventListener('click', async () => {
     try {
-        await signOut(auth); // Usando 'auth' importado
+        await signOut(auth);
         console.log('Logout bem-sucedido!');
     } catch (error) {
         console.error("Erro ao fazer logout:", error);
@@ -182,7 +182,7 @@ forgotPasswordLink.addEventListener('click', async (e) => {
     const email = prompt("Por favor, digite seu e-mail para resetar a senha:");
     if (email) {
         try {
-            await sendPasswordResetEmail(auth, email); // Usando 'auth' importado
+            await sendPasswordResetEmail(auth, email);
             alert("Um e-mail para resetar sua senha foi enviado!");
             console.log('E-mail de reset de senha enviado!');
         } catch (error) {
@@ -236,7 +236,7 @@ transactionForm.addEventListener('submit', handleTransactionSubmit); // Listener
 async function handleTransactionSubmit(e) {
     e.preventDefault();
 
-    const currentUser = auth.currentUser; // Usando 'auth' para obter o usuário atual
+    const currentUser = auth.currentUser;
     if (!currentUser) {
         alert('Você precisa estar logado para adicionar/atualizar lançamentos.');
         return;
@@ -247,7 +247,9 @@ async function handleTransactionSubmit(e) {
         return;
     }
 
-    const date = transactionDateInput.value;
+    const dateInputVal = transactionDateInput.value;
+    const [year, month, day] = dateInputVal.split('-').map(Number); // Pega ano, mês, dia do input de data
+
     const description = transactionDescriptionInput.value.trim();
     const value = parseFloat(transactionValueInput.value);
     const type = document.querySelector('input[name="transaction-type"]:checked').value;
@@ -255,13 +257,19 @@ async function handleTransactionSubmit(e) {
     const isRecurring = transactionRecurringCheckbox.checked;
     const totalParcels = parseInt(transactionTotalParcelsSelect.value);
 
-    if (!date || !description || isNaN(value) || value <= 0 || !category || !type) {
+    if (!dateInputVal || !description || isNaN(value) || value <= 0 || !category || !type) {
         alert('Por favor, preencha todos os campos obrigatórios: Data, Descrição, Valor, Tipo e Categoria.');
         return;
     }
 
-    const transactionData = {
-        date: Timestamp.fromDate(new Date(date)), // Usando 'Timestamp' importado
+    const lancamentoData = {
+        // Para compatibilidade com dados existentes e flexibilidade futura:
+        // 'date' será um Timestamp para novas entradas/edições, facilitando ordenação e manipulação de data.
+        // 'ano', 'mes', 'dia' são mantidos para compatibilidade com dados legados ou se forem desejados.
+        date: Timestamp.fromDate(new Date(dateInputVal)), // Salva a data completa como Timestamp
+        ano: year,
+        mes: month,
+        dia: day,
         description: description,
         value: value,
         category: category,
@@ -269,45 +277,48 @@ async function handleTransactionSubmit(e) {
         isRecurring: isRecurring,
         userId: currentUser.uid,
         userName: currentUserName,
-        // createdAt será definido ao adicionar/atualizar
         householdId: currentHouseholdId,
     };
 
-    if (isRecurring && totalParcels > 1) { // Verifica se é recorrente E parcelado
+    if (isRecurring && totalParcels > 1) {
         // A lógica de parcelas para criação de múltiplos documentos é mais complexa.
         // Por enquanto, vamos salvar o lançamento principal e adicionar os detalhes de parcelamento.
         // A geração de lançamentos futuros para parcelas deve ser feita em um processo separado,
         // ou aqui criando múltiplos documentos se essa for a intenção.
         // Para simplificar, o campo 'parcela' e 'totalParcels' serão apenas dados do lançamento 'pai'.
-        transactionData.parcel = 1; // Lançamento "pai" da recorrência
-        transactionData.totalParcels = totalParcels;
-        transactionData.originalDate = Timestamp.fromDate(new Date(date));
-        transactionData.recurringGroupId = transactionData.recurringGroupId || (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Date.now());
+        lancamentoData.parcelaAtual = 1; // Lançamento "pai" da recorrência
+        lancamentoData.totalParcelas = totalParcels;
+        // originalPurchaseAno, originalPurchaseMes, originalPurchaseDia podem ser usados para a data da primeira compra
+        lancamentoData.originalPurchaseAno = year;
+        lancamentoData.originalPurchaseMes = month;
+        lancamentoData.originalPurchaseDia = day;
+        lancamentoData.recurringGroupId = lancamentoData.recurringGroupId || (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15) + Date.now());
     } else {
-        transactionData.parcel = 1;
-        transactionData.totalParcels = 1;
-        transactionData.originalDate = Timestamp.fromDate(new Date(date));
-        delete transactionData.recurringGroupId; // Remove se não for recorrente/parcelado
+        lancamentoData.parcelaAtual = 1;
+        lancamentoData.totalParcelas = 1;
+        // remove campos de recorrência se não for aplicável
+        delete lancamentoData.originalPurchaseAno;
+        delete lancamentoData.originalPurchaseMes;
+        delete lancamentoData.originalPurchaseDia;
+        delete lancamentoData.recurringGroupId;
     }
 
-
     try {
-        const lancamentosCollectionRef = collection(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos'); // Usando 'collection' importado
+        // Caminho corrigido para a coleção de lançamentos
+        const lancamentosCollectionRef = collection(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos'); //
 
         if (editingTransactionId) {
-            transactionData.createdAt = serverTimestamp(); // ATUALIZA O TIMESTAMP NA EDIÇÃO
-            await updateDoc(doc(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos', editingTransactionId), transactionData); // Usando 'doc' e 'updateDoc'
+            lancamentoData.createdAt = serverTimestamp(); // ATUALIZA O TIMESTAMP NA EDIÇÃO
+            await updateDoc(doc(db, lancamentosCollectionRef, editingTransactionId), lancamentoData);
             alert('Lançamento atualizado com sucesso!');
-            editingTransactionId = null;
-            transactionSubmitButton.textContent = 'Adicionar Lançamento';
-            cancelEditButton.classList.add('hidden');
         } else {
-            transactionData.createdAt = serverTimestamp(); // NOVO TIMESTAMP PARA NOVOS LANÇAMENTOS
-            await addDoc(lancamentosCollectionRef, transactionData); // Usando 'addDoc'
+            lancamentoData.createdAt = serverTimestamp(); // NOVO TIMESTAMP PARA NOVOS LANÇAMENTOS
+            await addDoc(lancamentosCollectionRef, lancamentoData);
             alert('Lançamento adicionado com sucesso!');
         }
         transactionForm.reset();
         transactionTotalParcelsSelect.value = 1;
+        cancelEdit(); // Reseta o formulário após adicionar/editar
     } catch (error) {
         console.error("Erro ao adicionar/atualizar transação:", error);
         alert(`Erro ao adicionar/atualizar transação: ${error.message}`);
@@ -316,15 +327,13 @@ async function handleTransactionSubmit(e) {
 
 // Carregar transações
 const loadTransactions = () => {
-    const currentUser = auth.currentUser; // Usando 'auth'
+    const currentUser = auth.currentUser;
     if (!currentUser) {
         console.warn('Usuário não logado. Não é possível carregar lançamentos.');
         transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Faça login para ver os lançamentos.</td></tr>';
         clearMonthlySummary();
         return;
     }
-
-    console.log('Valor de currentHouseholdId antes da query:', currentHouseholdId);
 
     if (!currentHouseholdId) {
         console.warn('Nenhuma Chave de Acesso definida. Os lançamentos não serão filtrados por householdId.');
@@ -333,63 +342,68 @@ const loadTransactions = () => {
         return;
     }
 
-    console.log(`Tentando carregar lançamentos do caminho: artifacts/controle-financeiro-c1a0b/public/data/lancamentos com householdId: "${currentHouseholdId}"`);
+    // Caminho corrigido para a coleção de lançamentos
+    console.log(`Tentando carregar lançamentos do caminho: artifacts/controle-financeiro-c1a0b/public/data/lancamentos com householdId: "${currentHouseholdId}"`); //
 
+    // Ajuste da query para ordenar por 'ano', 'mes' e 'dia' para compatibilidade com dados existentes
+    // Se 'createdAt' for sempre presente e um Timestamp, 'orderBy("createdAt", "desc")' seria o ideal.
+    // Usando 'ano' e 'mes' para compatibilidade e como alternativa se 'createdAt' não for consistente.
     let q = query(
-        collection(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos'), // Usando 'collection'
-        where('householdId', '==', currentHouseholdId), // Usando 'where'
-        orderBy('createdAt', 'desc') // Usando 'orderBy'
+        collection(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos'), //
+        where('householdId', '==', currentHouseholdId),
+        orderBy('ano', 'desc'), // Ordena por ano
+        orderBy('mes', 'desc'), // Depois por mês
+        orderBy('dia', 'desc')  // Depois por dia
     );
 
-    const selectedYear = filterYearSelect.value;
-    const selectedMonths = Array.from(monthsCheckboxesDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+    const selectedYear = filterYearSelect.value; //
+    const selectedMonths = Array.from(monthsCheckboxesDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value)); //
     const searchDescription = filterDescriptionInput.value.toLowerCase().trim();
 
     // Remover listener anterior se existir para evitar duplicação
     if (unsubscribeSnapshot) {
         unsubscribeSnapshot();
-        unsubscribeSnapshot = null; // Limpar a referência
+        unsubscribeSnapshot = null;
     }
 
-    unsubscribeSnapshot = onSnapshot(q, snapshot => { // Usando 'onSnapshot'
+    unsubscribeSnapshot = onSnapshot(q, snapshot => {
         let transactions = [];
-        console.log(`Snapshot recebido. Documentos brutos do Firebase (após filtro de householdId e ordenação): ${snapshot.size}`);
+        console.log(`Snapshot recebido. Documentos brutos do Firebase (após filtro de householdId e ordenação): ${snapshot.size}`); //
 
         if (snapshot.empty) {
             console.log(`Nenhum documento encontrado para o caminho, ou as regras do Firebase estão bloqueando o acesso, ou nenhum lançamento corresponde à householdId: "${currentHouseholdId}".`);
         }
 
-        snapshot.forEach(docData => { // Renomeado para docData para evitar conflito com 'doc' da função doc()
-            const data = docData.data();
-            // AQUI ESTÁ A CORREÇÃO DA DATA:
-            // Garante que 'date' e 'originalDate' são convertidos de Timestamp para Date se forem Timestamps do Firestore
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            // Normaliza as datas para objetos Date para facilitar a filtragem no cliente
+            let transactionDateObject = null;
+            let originalDateObject = null;
+
+            // Se 'date' for um Timestamp (novos lançamentos)
             if (data.date && typeof data.date.toDate === 'function') {
-                data.transactionDateObject = data.date.toDate();
-            } else if (typeof data.date === 'number') { // Se for epoch timestamp (número)
-                data.transactionDateObject = new Date(data.date);
-            } else {
-                data.transactionDateObject = null; // Caso não seja nem Timestamp nem número válido
+                transactionDateObject = data.date.toDate();
+            } else if (data.ano && data.mes && data.dia) { // Se for a estrutura antiga (ano, mes, dia)
+                // Usamos o dia para o mês atual
+                transactionDateObject = new Date(data.ano, data.mes - 1, data.dia);
             }
 
-            if (data.originalDate && typeof data.originalDate.toDate === 'function') {
-                data.originalDateObject = data.originalDate.toDate();
-            } else if (typeof data.originalDate === 'number') { // Se for epoch timestamp (número)
-                data.originalDateObject = new Date(data.originalDate);
-            } else {
-                data.originalDateObject = null;
+            // Para originalDate, se existir
+            if (data.originalPurchaseAno && data.originalPurchaseMes && data.originalPurchaseDia) {
+                originalDateObject = new Date(data.originalPurchaseAno, data.originalPurchaseMes - 1, data.originalPurchaseDia);
+            } else if (transactionDateObject) { // Se não tem originalPurchase, usa a data da transação como original
+                originalDateObject = transactionDateObject;
             }
 
-            transactions.push({ id: docData.id, ...data });
+            transactions.push({ id: docSnap.id, ...data, transactionDateObject, originalDateObject });
         });
 
         // Filtragem no cliente por ano, mês e descrição
         let filteredTransactions = transactions.filter(t => {
-            const transactionDate = t.transactionDateObject; // Usa o objeto Date convertido
+            if (!t.transactionDateObject) return false;
 
-            if (!transactionDate) return false; // Se a data não é válida, filtra
-
-            const transactionYear = transactionDate.getFullYear().toString();
-            const transactionMonth = transactionDate.getMonth() + 1;
+            const transactionYear = t.transactionDateObject.getFullYear().toString();
+            const transactionMonth = t.transactionDateObject.getMonth() + 1;
 
             const matchesYear = (selectedYear === 'all' || transactionYear === selectedYear);
             const matchesMonth = selectedMonths.length === 0 || selectedMonths.includes(transactionMonth);
@@ -403,12 +417,15 @@ const loadTransactions = () => {
         displayTransactions(filteredTransactions);
         updateMonthlySummary(filteredTransactions);
     }, error => {
-        console.error(`Erro ao carregar lançamentos:`, error);
+        console.error(`Erro ao carregar lançamentos:`, error); //
         let errorMessage = 'Erro ao carregar lançamentos. Verifique sua conexão ou Chave de Acesso.';
         if (error.code === 'permission-denied') {
             errorMessage = 'Permissão negada! Verifique as regras de segurança do Firebase Firestore.';
-        } else if (error.code === 'failed-precondition' && error.message.includes('The query requires an index')) {
-            errorMessage = `Erro: A consulta requer um índice. Por favor, crie-o no Firebase Console clicando neste link: ${error.message.match(/https:\/\/[^\s]+/)[0]}`;
+        } else if (error.code === 'failed-precondition' && error.message.includes('The query requires an index')) { //
+            // Extrai o link para criar o índice
+            const indexLinkMatch = error.message.match(/https:\/\/[^\s]+/);
+            const indexLink = indexLinkMatch ? indexLinkMatch[0] : '#';
+            errorMessage = `Erro: A consulta requer um índice. Por favor, crie-o no Firebase Console clicando neste link: <a href="${indexLink}" target="_blank" class="text-blue-400 hover:underline">Criar Índice</a>`;
         }
         transactionsTableBody.innerHTML = `<tr><td colspan="9" class="py-4 text-center text-red-500">${errorMessage}</td></tr>`;
         clearMonthlySummary();
@@ -424,19 +441,27 @@ const displayTransactions = (transactions) => {
 
     transactions.forEach(transaction => {
         const row = transactionsTableBody.insertRow();
-        // Usa os objetos de data convertidos
-        const originalDate = transaction.originalDateObject ? transaction.originalDateObject.toLocaleDateString('pt-BR') : 'N/A';
-        const displayDate = transaction.transactionDateObject ? transaction.transactionDateObject.toLocaleDateString('pt-BR') : 'N/A';
         
-        const valueClass = transaction.type === 'entrada' ? 'text-green-400' : 'text-red-400'; // Ajuste cores Tailwind
+        // Data Original: pode ser do originalPurchase ou do dia/mes/ano dos dados antigos
+        let originalDateDisplay = 'N/A';
+        if (transaction.originalDateObject) {
+            originalDateDisplay = transaction.originalDateObject.toLocaleDateString('pt-BR');
+        } else if (transaction.ano && transaction.mes && transaction.dia) {
+            originalDateDisplay = `${String(transaction.dia).padStart(2, '0')}/${String(transaction.mes).padStart(2, '0')}/${transaction.ano}`; //
+        }
+
+        // Data da Parcela/Transação: usa transactionDateObject que já normaliza Timestamps ou ano/mes/dia
+        const transactionDateDisplay = transaction.transactionDateObject ? transaction.transactionDateObject.toLocaleDateString('pt-BR') : 'N/A';
+        
+        const valueClass = transaction.type === 'entrada' ? 'text-green-400' : 'text-red-400';
         const formattedValue = transaction.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const recurrenceText = transaction.isRecurring ? 'Sim' : 'Não';
-        const parcelText = transaction.totalParcels > 1 ? `${transaction.parcel}/${transaction.totalParcels}` : 'N/A';
-        const householdIdDisplay = transaction.householdId || 'N/A';
+        const parcelText = transaction.totalParcels > 1 ? `${transaction.parcelaAtual || 1}/${transaction.totalParcels}` : '1/1'; //
+        const householdIdDisplay = transaction.householdId || 'N/A'; //
 
         row.innerHTML = `
-            <td class="px-4 py-2">${originalDate}</td>
-            <td class="px-4 py-2">${displayDate} (${parcelText})</td>
+            <td class="px-4 py-2">${originalDateDisplay}</td>
+            <td class="px-4 py-2">${transactionDateDisplay} (${parcelText})</td>
             <td class="px-4 py-2">${transaction.description}</td>
             <td class="px-4 py-2 ${valueClass}">${formattedValue}</td>
             <td class="px-4 py-2">${transaction.category}</td>
@@ -454,14 +479,15 @@ const displayTransactions = (transactions) => {
     });
 };
 
-const editTransaction = async (id, transactionData) => {
+const editTransaction = async (id) => { // Removi o 'transactionData' do parâmetro pois buscaremos do banco
     if (!currentUserId || !currentHouseholdId) {
         alert('Faça login e defina a Chave de Acesso para editar.');
         return;
     }
 
     try {
-        const docRef = doc(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos', id); // Usando 'doc'
+        // Caminho corrigido para o documento
+        const docRef = doc(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos', id);
         const docSnap = await docRef.get();
 
         if (!docSnap.exists()) {
@@ -471,8 +497,8 @@ const editTransaction = async (id, transactionData) => {
 
         const data = docSnap.data();
 
-        // Verificação de Autorização: A householdId deve ser a mesma E o usuário deve ser o criador
-        if (data.householdId !== currentHouseholdId || data.userId !== currentUserId) {
+        // Verificação de Autorização: A householdId deve ser a mesma E o usuário deve ser o criador (ou pelo menos householdId)
+        if (data.householdId !== currentHouseholdId && data.userId !== currentUserId) { // Se householdId não bate E userId não bate, então não permite
             alert('Você não tem permissão para editar este lançamento ou ele não pertence à sua Chave de Acesso.');
             return;
         }
@@ -480,12 +506,21 @@ const editTransaction = async (id, transactionData) => {
         editingTransactionId = id;
 
         // Preenche o formulário
-        transactionDateInput.value = data.date && typeof data.date.toDate === 'function' ? data.date.toDate().toISOString().split('T')[0] : '';
+        // Se 'date' for Timestamp, usa toISOString(). Se for data antiga (ano, mes, dia), reconstrói.
+        if (data.date && typeof data.date.toDate === 'function') {
+            transactionDateInput.value = data.date.toDate().toISOString().split('T')[0];
+        } else if (data.ano && data.mes && data.dia) {
+            const d = new Date(data.ano, data.mes - 1, data.dia);
+            transactionDateInput.value = d.toISOString().split('T')[0];
+        } else {
+            transactionDateInput.value = ''; // Reseta se não houver data válida
+        }
+        
         transactionDescriptionInput.value = data.description;
         transactionValueInput.value = data.value;
-        document.querySelector(`input[name="transaction-type"][value="${data.type}"]`).checked = true;
+        document.querySelector(`input[name="transaction-type"][value="${data.type}"]`).checked = true; //
         transactionCategorySelect.value = data.category;
-        transactionRecurringCheckbox.checked = data.isRecurring;
+        transactionRecurringCheckbox.checked = data.isRecurring || false;
         transactionTotalParcelsSelect.value = data.totalParcels || 1;
 
         transactionSubmitButton.textContent = 'Atualizar Lançamento';
@@ -522,7 +557,8 @@ const deleteTransaction = async (id) => {
     }
 
     try {
-        const docRef = doc(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos', id); // Usando 'doc'
+        // Caminho corrigido para o documento
+        const docRef = doc(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos', id);
         const docSnap = await docRef.get();
 
         if (!docSnap.exists()) {
@@ -532,14 +568,14 @@ const deleteTransaction = async (id) => {
 
         const data = docSnap.data();
 
-        // Verificação de Autorização: A householdId deve ser a mesma E o usuário deve ser o criador
-        if (data.householdId !== currentHouseholdId || data.userId !== currentUserId) {
+        // Verificação de Autorização: A householdId deve ser a mesma E o usuário deve ser o criador (ou pelo menos householdId)
+        if (data.householdId !== currentHouseholdId && data.userId !== currentUserId) { // Se householdId não bate E userId não bate, então não permite
             alert('Você não tem permissão para excluir este lançamento ou ele não pertence à sua Chave de Acesso.');
             return;
         }
 
         console.log(`Tentando excluir transação ${id} do caminho: artifacts/controle-financeiro-c1a0b/public/data/lancamentos`);
-        await deleteDoc(docRef); // Usando 'deleteDoc'
+        await deleteDoc(docRef);
         alert('Lançamento excluído com sucesso!');
     } catch (error) {
         alert(`Erro ao excluir lançamento: ${error.message}`);
@@ -556,21 +592,17 @@ const updateMonthlySummary = (transactions = []) => {
     let totalSaidas = 0;
     let daysInPeriod = 0;
 
-    // A lógica de daysInPeriod deve se basear nos filtros de ano/mês selecionados
-    if (selectedYear && selectedYear !== 'all') {
-        let startDate, endDate;
-        if (selectedMonths.length === 1) {
-            const month = selectedMonths[0];
-            startDate = new Date(parseInt(selectedYear), month - 1, 1);
-            endDate = new Date(parseInt(selectedYear), month, 0);
-        } else if (selectedMonths.length > 1) {
-            startDate = new Date(parseInt(selectedYear), Math.min(...selectedMonths) - 1, 1);
-            endDate = new Date(parseInt(selectedYear), Math.max(...selectedMonths), 0);
-        } else {
-            startDate = new Date(parseInt(selectedYear), 0, 1);
-            endDate = new Date(parseInt(selectedYear), 11, 31);
-        }
-        daysInPeriod = Math.ceil((endDate - startDate + 1) / (1000 * 60 * 60 * 24));
+    // Calcula os dias no período apenas se houver pelo menos um mês selecionado
+    if (selectedMonths.length > 0 && selectedYear !== 'all') {
+        const uniqueMonths = new Set(selectedMonths);
+        let calculatedDays = 0;
+        uniqueMonths.forEach(month => {
+            const date = new Date(parseInt(selectedYear), month, 0); // O dia 0 do próximo mês nos dá o último dia do mês atual
+            calculatedDays += date.getDate(); // Número de dias no mês
+        });
+        daysInPeriod = calculatedDays;
+    } else if (selectedYear !== 'all') { // Se apenas o ano está selecionado, e não há meses específicos
+        daysInPeriod = 365; // Ou 366 para anos bissextos, simplificando
     }
 
 
@@ -611,20 +643,20 @@ const clearMonthlySummary = () => {
 const populateFilterYears = () => {
     const currentYear = new Date().getFullYear();
     filterYearSelect.innerHTML = '<option value="all">Todos os Anos</option>';
-    for (let i = currentYear; i >= currentYear - 5; i--) {
+    for (let i = currentYear; i >= 2020; i--) { // Exibe 5 anos para trás
         const option = document.createElement('option');
         option.value = i;
         option.textContent = i;
         filterYearSelect.appendChild(option);
     }
-    filterYearSelect.value = currentYear;
+    filterYearSelect.value = currentYear; // Seleciona o ano atual como padrão
 };
 
 const renderMonthCheckboxes = () => {
     monthsCheckboxesDiv.innerHTML = '';
     const months = [
         { name: 'Janeiro', value: 1 }, { name: 'Fevereiro', value: 2 }, { name: 'Março', value: 3 },
-        { name: 'Abril', value: 4 }, { name: 'Maio', value: 5 }, { name: 'Junho', value: 6 },
+        { name: 'Abril', value: 4 }, { name: 'Maio', value: 5 }, { name: 'Junho', value: 6 }, //
         { name: 'Julho', value: 7 }, { name: 'Agosto', value: 8 }, { name: 'Setembro', value: 9 },
         { name: 'Outubro', value: 10 }, { name: 'Novembro', value: 11 }, { name: 'Dezembro', value: 12 }
     ];
@@ -639,10 +671,10 @@ const renderMonthCheckboxes = () => {
         monthsCheckboxesDiv.appendChild(div);
     });
 
-    const currentMonth = new Date().getMonth() + 1;
+    const currentMonth = new Date().getMonth() + 1; //
     const currentMonthCheckbox = document.getElementById(`month-${currentMonth}`);
     if (currentMonthCheckbox) {
-        currentMonthCheckbox.checked = true;
+        currentMonthCheckbox.checked = true; //
     }
 };
 
@@ -661,4 +693,5 @@ document.addEventListener('DOMContentLoaded', () => {
     transactionDateInput.value = `${year}-${month}-${day}`;
 
     updateHouseholdDisplay();
+    // loadTransactions() é chamado no onAuthStateChanged
 });

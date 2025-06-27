@@ -321,6 +321,9 @@ const loadTransactions = () => {
         return;
     }
 
+    // DEBUG: Confirma o valor de currentHouseholdId logo antes da query
+    console.log('Valor de currentHouseholdId antes da query:', currentHouseholdId);
+
     if (!currentHouseholdId) {
         console.warn('Nenhuma Chave de Acesso definida. Os lançamentos não serão filtrados por householdId.');
         transactionsTableBody.innerHTML = '<tr><td colspan="9" class="py-4 text-center">Defina uma Chave de Acesso (ID da Família/Grupo) para ver os lançamentos compartilhados.</td></tr>';
@@ -380,9 +383,8 @@ const loadTransactions = () => {
     }, error => {
         console.error(`Erro ao carregar lançamentos:`, error);
         let errorMessage = 'Erro ao carregar lançamentos. Verifique sua conexão ou Chave de Acesso.';
-        if (error.code === 'permission-denied') {
-            errorMessage = 'Permissão negada! Verifique as regras de segurança do Firebase Firestore.';
-        } else if (error.code === 'failed-precondition' && error.message.includes('The query requires an index')) {
+        // O erro de permissão não deve mais aparecer com as regras de depuração
+        if (error.code === 'failed-precondition' && error.message.includes('The query requires an index')) {
             errorMessage = `Erro: A consulta requer um índice. Por favor, crie-o no Firebase Console clicando neste link: ${error.message.match(/https:\/\/[^\s]+/)[0]}`;
         }
         transactionsTableBody.innerHTML = `<tr><td colspan="9" class="py-4 text-center text-red-500">${errorMessage}</td></tr>`;

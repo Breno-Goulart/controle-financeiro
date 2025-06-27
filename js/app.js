@@ -4,7 +4,13 @@ import {
     getAuth,
     signInAnonymously,
     signInWithCustomToken,
-    onAuthStateChanged
+    onAuthStateChanged,
+    GoogleAuthProvider, // Adicionado para autenticação Google
+    signInWithPopup,    // Adicionado para autenticação Google
+    signOut,            // Adicionado para logout
+    signInWithEmailAndPassword, // Adicionado para login com email/senha
+    createUserWithEmailAndPassword, // Adicionado para registro com email/senha
+    sendPasswordResetEmail // Adicionado para redefinição de senha
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
     getFirestore,
@@ -48,6 +54,19 @@ let isAuthReady = false; // Flag para indicar se a autenticação foi concluída
 const RECURRING_MONTHS_AHEAD = 11; // Gerar para o mês atual + 11 meses à frente (total de 12)
 
 // Referências aos elementos do DOM (serão atribuídas em initializeUI)
+let firebaseStatusDiv; // Adicionado
+let authModal;         // Adicionado
+let loginForm;         // Adicionado
+let registerForm;      // Adicionado
+let showRegisterLink;  // Adicionado
+let showLoginLink;     // Adicionado
+let logoutButton;      // Adicionado
+let dashboardSection;  // Adicionado
+let loggedUserNameSpan; // Adicionado
+let googleLoginBtn;     // Adicionado
+let forgotPasswordLink; // Adicionado
+
+
 let lancamentoForm;
 let diaInput;
 let mesInput;
@@ -468,14 +487,33 @@ async function handleEditCellClick(cellElement) {
                     updateData.originalPurchaseAno = null;
                 }
             }
+
             // Se o lançamento é recorrente OU parcelado E o campo editado NÃO É A DATA
-            if ((currentLancamento.isRecurring && currentLancamento.recurringGroupId || (currentLancamento.parcelaAtual && currentLancamento.totalParcelas && currentLancamento.originalPurchaseAno)) && field !== 'dataCompleta') {
-                pendingEditData = { id: lancamentoId, field, newValue: updateData[field], currentLancamento, // Passa o lançamento atual completo type: currentLancamento.isRecurring ? 'recurring' : 'installment' };
-                // Atualiza a mensagem do modal
-                editRecurringChoiceMessage.textContent = `Este é um lançamento ${pendingEditData.type === 'recurring' ? 'recorrente' : 'parcelado'}. Como você gostaria de aplicar esta edição?`;
-                editRecurringChoiceModalOverlay.classList.remove('hidden'); // Mostra o modal de escolha
+            if ((currentLancamento.isRecurring && currentLancamento.recurringGroupId) || (currentLancamento.parcelaAtual && currentLancamento.totalParcelas && currentLancamento.originalPurchaseAno)) {
+                if (field !== 'dataCompleta') { // A edição da data não deve propagar em massa
+                    pendingEditData = {
+                        id: lancamentoId,
+                        field,
+                        newValue: updateData[field],
+                        currentLancamento: currentLancamento, // Passa o lançamento atual completo
+                        type: currentLancamento.isRecurring ? 'recurring' : 'installment'
+                    };
+                    // Atualiza a mensagem do modal
+                    editRecurringChoiceMessage.textContent = `Este é um lançamento ${pendingEditData.type === 'recurring' ? 'recorrente' : 'parcelado'}. Como você gostaria de aplicar esta edição?`;
+                    editRecurringChoiceModalOverlay.classList.remove('hidden'); // Mostra o modal de escolha
+                } else {
+                    // Se a data for editada, aplica apenas a este lançamento
+                    try {
+                        const docRef = doc(db, lancamentosCollection.path, lancamentoId);
+                        await setDoc(docRef, updateData, { merge: true });
+                        showMessageBox('Sucesso', 'Lançamento atualizado com sucesso!');
+                    } catch (e) {
+                        console.error("Erro ao atualizar documento: ", e);
+                        showMessageBox('Erro', 'Erro ao atualizar lançamento. Por favor, tente novamente.');
+                    }
+                }
             } else {
-                // Se não for recorrente, nem parcelado, ou se a data for editada (que não propaga em massa)
+                // Se não for recorrente nem parcelado, aplica diretamente
                 try {
                     const docRef = doc(db, lancamentosCollection.path, lancamentoId);
                     await setDoc(docRef, updateData, { merge: true });
@@ -573,631 +611,153 @@ async function applyEditToSeriesLancamentos(idToUpdate, field, newValue, baseLan
     const confirmation = await showConfirmBox('Confirmar Edição em Massa', 'Esta ação irá atualizar TODOS os lançamentos futuros (ou da série) desta categoria. Tem certeza?');
     if (!confirmation) return;
 
-    let updateData = {};
-    if (field === 'descricao' && baseLancamento.parcelaAtual && baseLancamento.totalParcelas) {
-        const installmentPartMatch = baseLancamento.descricao.match(/\s\((\d+\/\d+)\)$/);
-        const installmentPart = installmentPartMatch ? installmentPartMatch[0] : '';
-        updateData[field] = `${newValue.trim()}${installmentPart}`;
-    } else {
-        updateData[field] = newValue;
-    }
-
-    // Lógica para ajustar outros campos se o tipo mudar (copiado da lógica original de saveChanges)
-    if (field === 'tipo') {
-        if (newValue === 'entrada') {
-            updateData.parcelaAtual = null;
-            updateData.totalParcelas = null;
-            updateData.isRecurring = false;
-            updateData.recurringGroupId = null;
-            updateData.originalPurchaseDia = null;
-            updateData.originalPurchaseMes = null;
-            updateData.originalPurchaseAno = null;
-        } else if (newValue === 'saida' && !baseLancamento.isRecurring && baseLancamento.parcelaAtual === null && baseLancamento.totalParcelas === null) {
-            updateData.parcelaAtual = 1;
-            updateData.totalParcelas = 1;
-            if (!baseLancamento.originalPurchaseDia) {
-                updateData.originalPurchaseDia = baseLancamento.dia;
-                updateData.originalPurchaseMes = baseLancamento.mes;
-                updateData.originalPurchaseAno = baseLancamento.ano;
-            }
-        }
-    }
-    if (field === 'parcelaAtual' || field === 'totalParcelas') {
-        if (newValue !== null && newValue !== 0) {
-            updateData.isRecurring = false;
-            updateData.recurringGroupId = null;
-        } else {
-            updateData.originalPurchaseDia = null;
-            updateData.originalPurchaseMes = null;
-            updateData.originalPurchaseAno = null;
-        }
-    }
+    showMessageBox('Aguarde', 'Atualizando lançamentos em massa...');
+    document.getElementById('messageBoxOkBtn').classList.add('hidden'); // Esconde o botão OK durante o processamento
 
     try {
-        let queryRef;
+        const batchUpdates = [];
+        let q;
+
+        console.log(`[applyEditToSeriesLancamentos] Iniciando edição em massa para:`);
+        console.log(`[applyEditToSeriesLancamentos] ID do lançamento base (editado): ${idToUpdate}`);
+        console.log(`[applyEditToSeriesLancamentos] Campo a ser atualizado: ${field}`);
+        console.log(`[applyEditToSeriesLancamentos] Novo valor (base): ${newValue}`);
+        console.log(`[applyEditToSeriesLancamentos] Tipo de edição: ${editType}`);
+        console.log(`[applyEditToSeriesLancamentos] Dados do lançamento base:`, baseLancamento);
+
         if (editType === 'recurring') {
-            // Se for recorrente, atualiza todos com o mesmo recurringGroupId a partir da data atual
-            queryRef = query(
-                lancamentosCollection,
-                where('recurringGroupId', '==', baseLancamento.recurringGroupId),
-                where('ano', '>=', baseLancamento.ano), // Usar ano e mês do lançamento base para filtrar futuros
-                where('mes', '>=', baseLancamento.mes),
-                where('dia', '>=', baseLancamento.dia)
-                // É essencial ter orderBys correspondentes aos where aqui se não houver um único where e orderby
-                // Para update em massa, Firestore precisa de índices
-            );
-        } else if (editType === 'installment') {
-            // Se for parcelado, atualiza todas as parcelas da mesma série a partir da parcela atual
-            queryRef = query(
-                lancamentosCollection,
-                where('originalPurchaseDia', '==', baseLancamento.originalPurchaseDia),
-                where('originalPurchaseMes', '==', baseLancamento.originalPurchaseMes),
-                where('originalPurchaseAno', '==', baseLancamento.originalPurchaseAno),
-                where('descricao', '==', baseLancamento.descricao.split(' (')[0]), // Matching base description
-                where('valor', '==', baseLancamento.valor), // Assuming value is also constant for the series
-                where('totalParcelas', '==', baseLancamento.totalParcelas),
-                where('parcelaAtual', '>=', baseLancamento.parcelaAtual)
-            );
-        }
-
-        if (queryRef) {
-            const querySnapshot = await getDocs(queryRef);
-            const batch = writeBatch(db); // Use batch writes for multiple updates
-            querySnapshot.forEach((docSnap) => {
-                const docRef = doc(db, lancamentosCollection.path, docSnap.id);
-                batch.update(docRef, updateData);
-            });
-            await batch.commit();
-            showMessageBox('Sucesso', 'Lançamentos futuros atualizados com sucesso!');
-        } else {
-            showMessageBox('Erro', 'Tipo de edição desconhecido para propagação.');
-        }
-
-    } catch (e) {
-        console.error("Erro ao atualizar lançamentos em massa: ", e);
-        showMessageBox('Erro', 'Erro ao atualizar lançamentos futuros. Por favor, tente novamente.');
-    }
-}
-
-// Function to attach DOM elements to variables
-function initializeUI() {
-    // Basic elements
-    lancamentoForm = document.getElementById('lancamentoForm');
-    diaInput = document.getElementById('dia');
-    mesInput = document.getElementById('mes');
-    anoInput = document.getElementById('ano');
-    descricaoInput = document.getElementById('descricao');
-    valorInput = document.getElementById('valor');
-    categoriaSelect = document.getElementById('categoria');
-    tipoEntradaRadio = document.getElementById('tipoEntrada');
-    tipoSaidaRadio = document.getElementById('tipoSaida');
-    addGastoBtn = document.getElementById('addGastoBtn');
-    gastosTableBody = document.getElementById('gastosTableBody');
-    totalEntradasSpan = document.getElementById('totalEntradas');
-    totalSaidasSpan = document.getElementById('totalSaidas');
-    mediaDiariaSpan = document.getElementById('mediaDiaria');
-    saldoMesSpan = document.getElementById('saldoMes');
-
-    // Filter elements
-    filterMesGroup = document.getElementById('filterMesGroup');
-    filterMesAll = document.getElementById('filterMesAll');
-    monthFilterCheckboxes = document.querySelectorAll('.month-filter-checkbox');
-    filterAnoSelect = document.getElementById('filterAno');
-
-    // No expenses message
-    noExpensesMessage = document.getElementById('noExpensesMessage');
-
-    // Installment fields
-    parcelaAtualSelect = document.getElementById('parcelaAtual');
-    totalParcelasSelect = document.getElementById('totalParcelas');
-    parcelaFieldsDiv = document.getElementById('parcelaFields');
-
-    // Household ID elements
-    userIdDisplay = document.getElementById('user-id-display');
-    joinHouseholdIdInput = document.getElementById('joinHouseholdIdInput');
-    setHouseholdIdBtn = document.getElementById('setHouseholdIdBtn');
-
-    // Mass selection/deletion
-    selectAllCheckbox = document.getElementById('selectAllCheckbox');
-    deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-
-    // Recurring charge
-    isRecurringCheckbox = document.getElementById('isRecurring');
-
-    // Redesigned summary elements
-    saldoStatusBar = document.getElementById('saldoStatusBar');
-    saldoStatusText = document.getElementById('saldoStatusText');
-
-    // Stop recurring modal elements
-    stopRecurringMonthsModalOverlay = document.getElementById('stopRecurringMonthsModalOverlay');
-    stopFromCurrentMonthCheckbox = document.getElementById('stopFromCurrentMonthCheckbox');
-    currentMonthAndYearSpan = document.getElementById('currentMonthAndYear');
-    specificMonthsSelectionDiv = document.getElementById('specificMonthsSelection');
-    monthStopCheckboxes = document.querySelectorAll('.stop-month-checkbox');
-    stopRecurringYearSelect = document.getElementById('stopRecurringYearSelect');
-    cancelStopRecurringBtn = document.getElementById('cancelStopRecurringBtn');
-    confirmStopRecurringBtn = document.getElementById('confirmStopRecurringBtn');
-
-    // Search bar
-    searchBarInput = document.getElementById('searchBar');
-
-    // Auto categorization feedback
-    categoryLoadingIndicator = document.getElementById('categoryLoadingIndicator');
-
-    // Edit recurring/installment choice modal
-    editRecurringChoiceModalOverlay = document.getElementById('editRecurringChoiceModalOverlay');
-    editRecurringChoiceMessage = document.getElementById('editRecurringChoiceMessage');
-    applyToThisBtn = document.getElementById('applyToThisBtn');
-    applyToFutureBtn = document.getElementById('applyToFutureBtn');
-    cancelEditRecurringBtn = document.getElementById('cancelEditRecurringBtn');
-
-
-    // Populate year filter
-    const currentYear = new Date().getFullYear();
-    for (let i = currentYear - 5; i <= currentYear + 5; i++) {
-        const option = document.createElement('option');
-        option.value = i;
-        option.textContent = i;
-        if (i === currentYear) {
-            option.selected = true;
-        }
-        filterAnoSelect.appendChild(option);
-    }
-    // Populate stop recurring year select
-    for (let i = currentYear - 5; i <= currentYear + 5; i++) {
-        const option = document.createElement('option');
-        option.value = i;
-        option.textContent = i;
-        if (i === currentYear) {
-            option.selected = true;
-        }
-        stopRecurringYearSelect.appendChild(option);
-    }
-
-    // Event Listeners
-    lancamentoForm.addEventListener('submit', addLancamento);
-    filterMesAll.addEventListener('change', handleFilterMesAllChange);
-    monthFilterCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', handleMonthFilterCheckboxChange);
-    });
-    filterAnoSelect.addEventListener('change', () => {
-        updateSummary();
-        renderLancamentos();
-    });
-    setHouseholdIdBtn.addEventListener('click', setHouseholdId);
-    selectAllCheckbox.addEventListener('change', handleSelectAllChange);
-    deleteSelectedBtn.addEventListener('click', deleteSelectedLancamentos);
-    gastosTableBody.addEventListener('click', (event) => {
-        const target = event.target;
-        if (target.classList.contains('select-item-checkbox')) {
-            handleSelectItemChange(event);
-        } else if (target.classList.contains('delete-btn')) {
-            deleteLancamento(target.dataset.id);
-        } else if (target.classList.contains('stop-recurring-btn')) {
-            openStopRecurringModal(target.dataset.recurringGroupId, target.dataset.originalPurchaseYear, target.dataset.originalPurchaseMonth);
-        } else if (target.tagName === 'TD' && target.dataset.id && target.dataset.field) {
-            handleEditCellClick(target);
-        }
-    });
-
-    // Initial state for parcelamento fields
-    function updateParcelaFieldsVisibility() {
-        if (isRecurringCheckbox.checked) {
-            parcelaFieldsDiv.classList.add('hidden');
-        } else {
-            parcelaFieldsDiv.classList.remove('hidden');
-        }
-    }
-    isRecurringCheckbox.addEventListener('change', updateParcelaFieldsVisibility);
-    updateParcelaFieldsVisibility(); // Set initial visibility
-
-    // Hide parcelamento fields by default initially
-    parcelaFieldsDiv.classList.add('hidden');
-
-    // Show/hide parcela fields based on tipo
-    tipoEntradaRadio.addEventListener('change', () => {
-        parcelaFieldsDiv.classList.add('hidden');
-        isRecurringCheckbox.checked = false;
-        updateParcelaFieldsVisibility();
-    });
-    tipoSaidaRadio.addEventListener('change', () => {
-        parcelaFieldsDiv.classList.remove('hidden');
-        updateParcelaFieldsVisibility();
-    });
-
-    // Stop recurring modal listeners
-    stopFromCurrentMonthCheckbox.addEventListener('change', toggleSpecificMonthsSelection);
-    cancelStopRecurringBtn.addEventListener('click', () => {
-        stopRecurringMonthsModalOverlay.classList.add('hidden');
-    });
-    confirmStopRecurringBtn.addEventListener('click', confirmStopRecurring);
-
-    // Edit recurring/installment choice modal listeners
-    applyToThisBtn.addEventListener('click', () => {
-        editRecurringChoiceModalOverlay.classList.add('hidden');
-        if (pendingEditData) {
-            applyEditToSingleLancamento(pendingEditData.id, pendingEditData.field, pendingEditData.newValue, pendingEditData.currentLancamento);
-            pendingEditData = null;
-        }
-    });
-    applyToFutureBtn.addEventListener('click', () => {
-        editRecurringChoiceModalOverlay.classList.add('hidden');
-        if (pendingEditData) {
-            applyEditToSeriesLancamentos(pendingEditData.id, pendingEditData.field, pendingEditData.newValue, pendingEditData.currentLancamento, pendingEditData.type);
-            pendingEditData = null;
-        }
-    });
-    cancelEditRecurringBtn.addEventListener('click', () => {
-        editRecurringChoiceModalOverlay.classList.add('hidden');
-        pendingEditData = null;
-    });
-
-    searchBarInput.addEventListener('input', () => {
-        renderLancamentos(); // Re-render on search input
-    });
-}
-
-// Function to toggle specific months selection in stop recurring modal
-function toggleSpecificMonthsSelection() {
-    if (stopFromCurrentMonthCheckbox.checked) {
-        specificMonthsSelectionDiv.classList.add('hidden');
-    } else {
-        specificMonthsSelectionDiv.classList.remove('hidden');
-        // Reset specific month checkboxes if they were previously checked
-        monthStopCheckboxes.forEach(cb => cb.checked = false);
-    }
-}
-
-// Function to handle opening the stop recurring modal
-function openStopRecurringModal(recurringGroupId, originalPurchaseYear, originalPurchaseMonth) {
-    currentRecurringGroupId = recurringGroupId;
-    // Set current month and year in the modal message
-    const today = new Date();
-    currentMonthAndYearSpan.textContent = `${getMonthName(today.getMonth() + 1)} de ${today.getFullYear()}`;
-
-    // Pre-select the original purchase month in the specific months selection if applicable
-    monthStopCheckboxes.forEach(cb => {
-        if (parseInt(cb.value) === parseInt(originalPurchaseMonth)) {
-            cb.checked = true;
-        } else {
-            cb.checked = false; // Uncheck others
-        }
-    });
-    stopRecurringYearSelect.value = originalPurchaseYear; // Pre-select the original purchase year
-
-    stopFromCurrentMonthCheckbox.checked = true; // Default to stopping from current month
-    toggleSpecificMonthsSelection(); // Hide specific months initially
-
-    stopRecurringMonthsModalOverlay.classList.remove('hidden');
-}
-
-// Function to confirm stopping recurring charges
-async function confirmStopRecurring() {
-    if (!currentRecurringGroupId) {
-        showMessageBox('Erro', 'Nenhum grupo de recorrência selecionado.');
-        return;
-    }
-
-    const confirm = await showConfirmBox('Confirmar Parada', 'Tem certeza que deseja parar esta cobrança recorrente para os meses selecionados? Isso removerá os lançamentos futuros.');
-    if (!confirm) return;
-
-    try {
-        let monthsToStop = [];
-        let stopYear = parseInt(stopRecurringYearSelect.value);
-
-        if (stopFromCurrentMonthCheckbox.checked) {
-            // Stop from current month onwards for all future occurrences
-            const today = new Date();
-            const currentMonth = today.getMonth() + 1; // 1-indexed
-            const currentYear = today.getFullYear();
-
-            // Fetch all recurring charges for this group that are in the future or current month/year
-            const q = query(
-                lancamentosCollection,
-                where('recurringGroupId', '==', currentRecurringGroupId),
-                where('ano', '>=', currentYear),
-                where('mes', '>=', currentMonth)
-            );
-            const querySnapshot = await getDocs(q);
-            const batch = writeBatch(db);
-            querySnapshot.forEach((docSnap) => {
-                // Ensure we only delete future or current month entries
-                if (docSnap.data().ano > currentYear || (docSnap.data().ano === currentYear && docSnap.data().mes >= currentMonth)) {
-                     batch.delete(doc(db, lancamentosCollection.path, docSnap.id));
-                }
-            });
-            await batch.commit();
-            showMessageBox('Sucesso', 'Cobrança recorrente parada e lançamentos futuros removidos!');
-        } else {
-            // Stop for specific selected months
-            monthStopCheckboxes.forEach(cb => {
-                if (cb.checked) {
-                    monthsToStop.push(parseInt(cb.value));
-                }
-            });
-
-            if (monthsToStop.length === 0) {
-                showMessageBox('Aviso', 'Nenhum mês selecionado para parar a recorrência.');
+            if (!baseLancamento.isRecurring || !baseLancamento.recurringGroupId) {
+                showMessageBox('Erro', 'Este lançamento não é uma cobrança recorrente válida para edição em série.');
                 return;
             }
-
-            // Fetch and delete documents for the selected months and year
-            const q = query(
+            q = query(
                 lancamentosCollection,
-                where('recurringGroupId', '==', currentRecurringGroupId),
-                where('ano', '==', stopYear),
-                where('mes', 'in', monthsToStop) // Use 'in' query for multiple months
+                where("recurringGroupId", "==", baseLancamento.recurringGroupId),
+                where("householdId", "==", currentHouseholdId)
             );
-            const querySnapshot = await getDocs(q);
-            const batch = writeBatch(db);
-            querySnapshot.forEach((docSnap) => {
-                batch.delete(doc(db, lancamentosCollection.path, docSnap.id));
-            });
-            await batch.commit();
-            showMessageBox('Sucesso', `Cobrança recorrente parada para os meses selecionados de ${stopYear}!`);
+        } else if (editType === 'installment') {
+            if (!(baseLancamento.parcelaAtual && baseLancamento.totalParcelas && baseLancamento.originalPurchaseAno)) {
+                showMessageBox('Erro', 'Este lançamento não é uma parcela válida para edição em série.');
+                return;
+            }
+            // Para parcelas, consultamos com base na data da compra original
+            q = query(
+                lancamentosCollection,
+                where("originalPurchaseAno", "==", baseLancamento.originalPurchaseAno),
+                where("originalPurchaseMes", "==", baseLancamento.originalPurchaseMes),
+                where("originalPurchaseDia", "==", baseLancamento.originalPurchaseDia),
+                where("householdId", "==", currentHouseholdId)
+            );
+        } else {
+            showMessageBox('Erro', 'Tipo de edição em série inválido.');
+            return;
         }
 
-        stopRecurringMonthsModalOverlay.classList.add('hidden');
-        currentRecurringGroupId = null; // Reset
+        const querySnapshot = await getDocs(q);
+        console.log(`[applyEditToSeriesLancamentos] Documentos encontrados na query: ${querySnapshot.size}`);
+
+        querySnapshot.forEach((docSnap) => {
+            const lancamentoData = docSnap.data();
+            let shouldUpdateDoc = false;
+
+            // Lançamento atual sempre deve ser atualizado
+            if (docSnap.id === idToUpdate) {
+                shouldUpdateDoc = true;
+                console.log(`[applyEditToSeriesLancamentos] Incluindo documento editado: ${docSnap.id}`);
+            } else {
+                // Para outros documentos na série/grupo, verifica se são "futuros"
+                if (editType === 'recurring') {
+                    const lancamentoDate = new Date(lancamentoData.ano, lancamentoData.mes - 1, lancamentoData.dia);
+                    const baseDate = new Date(baseLancamento.ano, baseLancamento.mes - 1, baseLancamento.dia);
+
+                    if (lancamentoDate.getTime() >= baseDate.getTime()) {
+                        shouldUpdateDoc = true;
+                        console.log(`[applyEditToSeriesLancamentos] Incluindo lançamento recorrente futuro: ${docSnap.id} (Data: ${lancamentoDate.toLocaleDateString()})`);
+                    } else {
+                        console.log(`[applyEditToSeriesLancamentos] Ignorando lançamento recorrente passado: ${docSnap.id} (Data: ${lancamentoDate.toLocaleDateString()})`);
+                    }
+
+                } else if (editType === 'installment') {
+                    // Para parcelas, verifica se o número da parcela é igual ou posterior à parcela base
+                    if (lancamentoData.parcelaAtual && baseLancamento.parcelaAtual && lancamentoData.parcelaAtual >= baseLancamento.parcelaAtual) {
+                        shouldUpdateDoc = true;
+                        console.log(`[applyEditToSeriesLancamentos] Incluindo parcela futura: ${docSnap.id} (Parcela: ${lancamentoData.parcelaAtual}/${lancamentoData.totalParcelas})`);
+                    } else {
+                        console.log(`[applyEditToSeriesLancamentos] Ignorando parcela passada: ${docSnap.id} (Parcela: ${lancamentoData.parcelaAtual}/${lancamentoData.totalParcelas})`);
+                    }
+                }
+            }
+
+            // Apenas procede com a atualização se shouldUpdateDoc for true E o campo não for 'dataCompleta'
+            if (shouldUpdateDoc && field !== 'dataCompleta') {
+                const docRef = doc(db, lancamentosCollection.path, docSnap.id);
+                const updateData = {};
+
+                if (field === 'descricao') {
+                    // Para descrição de parcela, atualiza a descrição base e mantém o "(X/Y)"
+                    if (editType === 'installment') {
+                        const installmentPartMatch = lancamentoData.descricao.match(/\s\((\d+\/\d+)\)$/);
+                        const installmentPart = installmentPartMatch ? installmentPartMatch[0] : '';
+                        updateData[field] = `${newValue.trim()}${installmentPart}`;
+                    }
+                    // Para descrição recorrente, apenas o novo valor (sem (X/Y))
+                    else if (editType === 'recurring') {
+                        updateData[field] = newValue.trim();
+                    }
+                } else {
+                    updateData[field] = newValue;
+                }
+
+                // Lógica de ajuste adicional se o 'tipo' mudar
+                if (field === 'tipo') {
+                    if (newValue === 'entrada') {
+                        updateData.parcelaAtual = null;
+                        updateData.totalParcelas = null;
+                        updateData.isRecurring = false;
+                        updateData.recurringGroupId = null;
+                        updateData.originalPurchaseDia = null;
+                        updateData.originalPurchaseMes = null;
+                        updateData.originalPurchaseAno = null;
+                    } else if (newValue === 'saida' && !lancamentoData.isRecurring && lancamentoData.parcelaAtual === null && lancamentoData.totalParcelas === null) {
+                        updateData.parcelaAtual = 1;
+                        updateData.totalParcelas = 1;
+                        if (!lancamentoData.originalPurchaseDia) {
+                            updateData.originalPurchaseDia = lancamentoData.dia;
+                            updateData.originalPurchaseMes = lancamentoData.mes;
+                            updateData.originalPurchaseAno = lancamentoData.ano;
+                        }
+                    }
+                }
+
+                batchUpdates.push(setDoc(docRef, updateData, { merge: true }));
+            }
+        });
+
+        if (batchUpdates.length > 0) {
+            await Promise.all(batchUpdates); // Executa todas as atualizações simultaneamente
+            showMessageBox('Sucesso', 'Lançamentos em série atualizados com sucesso!');
+        } else {
+            showMessageBox('Info', 'Nenhum lançamento futuro encontrado para atualização em massa com os critérios selecionados.');
+        }
+        pendingEditData = null; // Limpa os dados de edição pendentes
+
     } catch (e) {
-        console.error("Erro ao parar cobrança recorrente: ", e);
-        showMessageBox('Erro', 'Erro ao parar cobrança recorrente. Por favor, tente novamente.');
+        console.error("[applyEditToSeriesLancamentos] Erro ao aplicar edição em série:", e);
+        showMessageBox('Erro', `Erro ao atualizar lançamentos em série: ${e.message}. Por favor, tente novamente.`);
+    } finally {
+        document.getElementById('messageBoxOkBtn').classList.remove('hidden'); // Mostra o botão OK novamente
     }
 }
 
 /**
- * Adiciona um novo lançamento ao Firestore.
- * @param {Event} event O objeto do evento de submissão do formulário.
+ * Exclui um lançamento específico do Firestore.
+ * @param {string} id O ID do documento a ser excluído.
  */
-async function addLancamento(event) {
-    event.preventDefault(); // Previne o recarregamento da página
-
+async function deleteLancamento(id) {
     if (!isAuthReady) {
         showMessageBox('Aguarde', 'Aplicação ainda carregando, por favor, aguarde.');
         return;
     }
-
-    const dia = parseInt(diaInput.value);
-    const mes = parseInt(mesInput.value);
-    const ano = parseInt(anoInput.value);
-    const descricao = descricaoInput.value.trim();
-    const valor = parseFloat(valorInput.value);
-    const categoria = categoriaSelect.value;
-    const tipo = tipoEntradaRadio.checked ? 'entrada' : 'saida';
-    const isRecurring = isRecurringCheckbox.checked;
-
-    const parcelaAtual = isRecurring ? null : (parseInt(parcelaAtualSelect.value) || null);
-    const totalParcelas = isRecurring ? null : (parseInt(totalParcelasSelect.value) || null);
-
-    if (!descricao || isNaN(valor) || valor <= 0 || !categoria || isNaN(dia) || isNaN(mes) || isNaN(ano)) {
-        showMessageBox('Erro de Validação', 'Por favor, preencha todos os campos obrigatórios e insira um valor positivo.');
-        return;
-    }
-
-    // Validação para parcelas
-    if (tipo === 'saida' && !isRecurring) {
-        if ((parcelaAtual !== null && totalParcelas === null) || (parcelaAtual === null && totalParcelas !== null)) {
-            showMessageBox('Erro de Validação', 'Se for uma despesa parcelada, por favor, preencha tanto "Parcela Atual" quanto "Total de Parcelas".');
-            return;
-        }
-        if (parcelaAtual > totalParcelas && totalParcelas !== 0) {
-            showMessageBox('Erro de Validação', 'A Parcela Atual não pode ser maior que o Total de Parcelas.');
-            return;
-        }
-        if (parcelaAtual === 0 && totalParcelas !== 0 || parcelaAtual !== 0 && totalParcelas === 0) {
-            showMessageBox('Erro de Validação', 'Se um for 0, o outro também deve ser 0 para parcelas. Use "-" para não-parcelado.');
-            return;
-        }
-    }
-
-    // Adiciona o lancamento ao Firestore
-    try {
-        if (isRecurring) {
-            const recurringGroupId = doc(collection(db, "recurringGroups")).id; // Gera um ID único para o grupo recorrente
-            const batch = writeBatch(db);
-
-            // Adiciona o lançamento original
-            const baseDocRef = doc(lancamentosCollection);
-            batch.set(baseDocRef, {
-                householdId: currentHouseholdId,
-                dia,
-                mes,
-                ano,
-                descricao,
-                valor,
-                categoria,
-                tipo,
-                isRecurring: true,
-                recurringGroupId: recurringGroupId,
-                originalPurchaseDia: dia,
-                originalPurchaseMes: mes,
-                originalPurchaseAno: ano,
-                createdAt: serverTimestamp() // Adiciona timestamp para ordenação
-            });
-
-            // Cria lançamentos futuros para os próximos X meses (RECURRING_MONTHS_AHEAD)
-            let currentMonth = mes;
-            let currentYear = ano;
-            for (let i = 1; i <= RECURRING_MONTHS_AHEAD; i++) {
-                currentMonth++;
-                if (currentMonth > 12) {
-                    currentMonth = 1;
-                    currentYear++;
-                }
-                const futureDocRef = doc(lancamentosCollection);
-                batch.set(futureDocRef, {
-                    householdId: currentHouseholdId,
-                    dia, // Mantém o dia do lançamento original
-                    mes: currentMonth,
-                    ano: currentYear,
-                    descricao,
-                    valor,
-                    categoria,
-                    tipo,
-                    isRecurring: true,
-                    recurringGroupId: recurringGroupId,
-                    originalPurchaseDia: dia,
-                    originalPurchaseMes: mes,
-                    originalPurchaseAno: ano,
-                    createdAt: serverTimestamp() // Adiciona timestamp para ordenação
-                });
-            }
-            await batch.commit();
-            showMessageBox('Sucesso', 'Lançamento recorrente adicionado e programado para os próximos meses!');
-
-        } else if (parcelaAtual && totalParcelas && totalParcelas > 0) {
-            // Lançamento parcelado
-            const baseDescription = descricao; // Salva a descrição original
-            for (let i = 1; i <= totalParcelas; i++) {
-                const installmentDescription = `${baseDescription} (${i}/${totalParcelas})`;
-                const docRef = doc(lancamentosCollection);
-                await setDoc(docRef, {
-                    householdId: currentHouseholdId,
-                    dia,
-                    mes,
-                    ano,
-                    descricao: installmentDescription, // Descrição com (X/Y)
-                    valor,
-                    categoria,
-                    tipo,
-                    parcelaAtual: i,
-                    totalParcelas: totalParcelas,
-                    // Armazena a data original da primeira parcela para referência em edições em massa
-                    originalPurchaseDia: dia,
-                    originalPurchaseMes: mes,
-                    originalPurchaseAno: ano,
-                    createdAt: serverTimestamp() // Adiciona timestamp para ordenação
-                });
-            }
-            showMessageBox('Sucesso', 'Lançamento parcelado adicionado com sucesso!');
-
-        } else {
-            // Lançamento único (não recorrente, não parcelado)
-            const docRef = doc(lancamentosCollection);
-            await setDoc(docRef, {
-                householdId: currentHouseholdId,
-                dia,
-                mes,
-                ano,
-                descricao,
-                valor,
-                categoria,
-                tipo,
-                parcelaAtual: null,
-                totalParcelas: null,
-                isRecurring: false,
-                recurringGroupId: null,
-                originalPurchaseDia: null, // Limpa para lançamentos únicos
-                originalPurchaseMes: null,
-                originalPurchaseAno: null, // Limpa para lançamentos únicos
-                createdAt: serverTimestamp() // Adiciona timestamp para ordenação
-            });
-            showMessageBox('Sucesso', 'Lançamento adicionado com sucesso!');
-        }
-
-        // Limpa o formulário após adicionar
-        lancamentoForm.reset();
-        isRecurringCheckbox.checked = false; // Reset recurring checkbox
-        updateParcelaFieldsVisibility(); // Update visibility after reset
-        diaInput.value = String(new Date().getDate()).padStart(2, '0');
-        mesInput.value = String(new Date().getMonth() + 1).padStart(2, '0');
-        anoInput.value = new Date().getFullYear();
-    } catch (e) {
-        console.error("Erro ao adicionar lançamento: ", e);
-        showMessageBox('Erro', 'Erro ao adicionar lançamento. Por favor, tente novamente.');
-    }
-}
-
-/**
- * Define o Household ID para o utilizador atual.
- */
-async function setHouseholdId() {
-    const newHouseholdId = joinHouseholdIdInput.value.trim();
-    if (newHouseholdId) {
-        currentHouseholdId = newHouseholdId;
-        localStorage.setItem('savedHouseholdId', currentHouseholdId);
-        if (userIdDisplay) userIdDisplay.textContent = `ID do Usuário: ${userId} (Household: ${currentHouseholdId})`;
-        showMessageBox('Sucesso', `ID da Família/Casa definido para: ${currentHouseholdId}`);
-        setupFirestoreListener(); // Re-fetch data with the new household ID
-    } else {
-        showMessageBox('Aviso', 'Por favor, insira um ID de Família/Casa válido.');
-    }
-}
-
-/**
- * Lida com a seleção/desseleção de todos os itens na tabela.
- * @param {Event} event O objeto do evento de mudança.
- */
-function handleSelectAllChange(event) {
-    const isChecked = event.target.checked;
-    document.querySelectorAll('.select-item-checkbox').forEach(checkbox => {
-        checkbox.checked = isChecked;
-        const lancamentoId = checkbox.dataset.id;
-        if (isChecked) {
-            selectedLancamentosIds.add(lancamentoId);
-        } else {
-            selectedLancamentosIds.delete(lancamentoId);
-        }
-    });
-    updateDeleteButtonState();
-}
-
-/**
- * Lida com a seleção/desseleção de um item individual na tabela.
- * @param {Event} event O objeto do evento de mudança.
- */
-function handleSelectItemChange(event) {
-    const lancamentoId = event.target.dataset.id;
-    if (event.target.checked) {
-        selectedLancamentosIds.add(lancamentoId);
-    } else {
-        selectedLancamentosIds.delete(lancamentoId);
-    }
-    updateDeleteButtonState();
-    updateSelectAllCheckboxState();
-}
-
-/**
- * Atualiza o estado do botão de exclusão em massa (habilitado/desabilitado).
- */
-function updateDeleteButtonState() {
-    deleteSelectedBtn.disabled = selectedLancamentosIds.size === 0;
-    deleteSelectedBtn.textContent = `Excluir Selecionados (${selectedLancamentosIds.size})`;
-}
-
-/**
- * Atualiza o estado do checkbox "Selecionar Todos" (marcado/indeterminado/desmarcado).
- */
-function updateSelectAllCheckboxState() {
-    const allItemCheckboxes = document.querySelectorAll('.select-item-checkbox');
-    const checkedItemCheckboxes = document.querySelectorAll('.select-item-checkbox:checked');
-
-    if (allItemCheckboxes.length === 0) {
-        selectAllCheckbox.checked = false;
-        selectAllCheckbox.indeterminate = false;
-        return;
-    }
-
-    if (checkedItemCheckboxes.length === 0) {
-        selectAllCheckbox.checked = false;
-        selectAllCheckbox.indeterminate = false;
-    } else if (checkedItemCheckboxes.length === allItemCheckboxes.length) {
-        selectAllCheckbox.checked = true;
-        selectAllCheckbox.indeterminate = false;
-    } else {
-        selectAllCheckbox.checked = false;
-        selectAllCheckbox.indeterminate = true;
-    }
-}
-
-/**
- * Exclui um lançamento do Firestore.
- * @param {string} id O ID do documento a ser excluído.
- */
-async function deleteLancamento(id) {
-    const confirm = await showConfirmBox('Confirmar Exclusão', 'Tem certeza que deseja excluir este lançamento?');
-    if (!confirm) return;
-
     try {
         const lancamentoToDelete = lancamentos.find(l => l.id === id);
         if (lancamentoToDelete.isRecurring && lancamentoToDelete.recurringGroupId) {
@@ -1222,38 +782,112 @@ async function deleteLancamento(id) {
             // Lançamento único
             await deleteDoc(doc(db, lancamentosCollection.path, id));
         }
-
         showMessageBox('Sucesso', 'Lançamento excluído com sucesso!');
         selectedLancamentosIds.delete(id); // Remove do conjunto de selecionados
         updateDeleteButtonState();
     } catch (e) {
-        console.error("Erro ao excluir lançamento: ", e);
+        console.error("Erro ao excluir documento: ", e);
         showMessageBox('Erro', 'Erro ao excluir lançamento. Por favor, tente novamente.');
     }
 }
 
 /**
- * Exclui todos os lançamentos selecionados do Firestore.
+ * Manipula a seleção/desseleção do checkbox "Selecionar Todos".
+ * @param {Event} event O objeto do evento de mudança.
  */
-async function deleteSelectedLancamentos() {
-    if (selectedLancamentosIds.size === 0) {
-        showMessageBox('Aviso', 'Nenhum lançamento selecionado para exclusão.');
+function handleSelectAllChange(event) {
+    const isChecked = event.target.checked;
+    document.querySelectorAll('.row-checkbox').forEach(checkbox => {
+        checkbox.checked = isChecked;
+        const id = checkbox.dataset.id;
+        if (isChecked) {
+            selectedLancamentosIds.add(id);
+        } else {
+            selectedLancamentosIds.delete(id);
+        }
+    });
+    updateDeleteSelectedButtonVisibility();
+}
+
+/**
+ * Manipula a seleção/desseleção de um checkbox de linha individual.
+ * @param {Event} event O objeto do evento de mudança.
+ */
+function handleRowCheckboxChange(event) {
+    const id = event.target.dataset.id;
+    if (event.target.checked) {
+        selectedLancamentosIds.add(id);
+    } else {
+        selectedLancamentosIds.delete(id);
+    }
+    updateSelectAllCheckboxState();
+    updateDeleteSelectedButtonVisibility();
+}
+
+/**
+ * Atualiza o estado do checkbox "Todos os Meses" (marcado/indeterminado/desmarcado).
+ */
+function updateSelectAllCheckboxState() {
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    if (!selectAllCheckbox) return;
+
+    if (allCheckboxes.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
         return;
     }
 
-    const confirm = await showConfirmBox('Confirmar Exclusão em Massa', `Tem certeza que deseja excluir ${selectedLancamentosIds.size} lançamentos selecionados?`);
-    if (!confirm) return;
+    const checkedCheckboxes = Array.from(allCheckboxes).filter(cb => cb.checked);
+    const allChecked = checkedCheckboxes.length === allCheckboxes.length;
+    const someChecked = checkedCheckboxes.length > 0 && checkedCheckboxes.length < allCheckboxes.length;
 
-    const batch = writeBatch(db);
+    selectAllCheckbox.checked = allChecked;
+    selectAllCheckbox.indeterminate = someChecked;
+}
+
+/**
+ * Atualiza a visibilidade do botão "Excluir Selecionados".
+ */
+function updateDeleteSelectedButtonVisibility() {
+    if (deleteSelectedBtn) {
+        if (selectedLancamentosIds.size > 0) {
+            deleteSelectedBtn.classList.remove('hidden');
+            deleteSelectedBtn.textContent = `Excluir Selecionados (${selectedLancamentosIds.size})`;
+        } else {
+            deleteSelectedBtn.classList.add('hidden');
+        }
+    }
+}
+
+/**
+ * Exclui todos os lançamentos atualmente selecionados na tabela.
+ */
+async function deleteSelectedLancamentos() {
+    if (!isAuthReady) {
+        showMessageBox('Aguarde', 'Aplicação ainda carregando, por favor, aguarde.');
+        return;
+    }
+    if (selectedLancamentosIds.size === 0) {
+        showMessageBox('Info', 'Nenhum lançamento selecionado para exclusão.');
+        return;
+    }
+
+    const confirmation = await showConfirmBox('Confirmação', `Tem certeza que deseja excluir ${selectedLancamentosIds.size} lançamento(s) selecionado(s)?`);
+    if (!confirmation) {
+        return;
+    }
+
+    const deletePromises = [];
     selectedLancamentosIds.forEach(id => {
-        batch.delete(doc(db, lancamentosCollection.path, id));
+        const docRef = doc(db, lancamentosCollection.path, id);
+        deletePromises.push(deleteDoc(docRef));
     });
 
     try {
-        await batch.commit();
+        await Promise.all(deletePromises);
         showMessageBox('Sucesso', `${selectedLancamentosIds.size} lançamentos excluídos com sucesso!`);
-        selectedLancamentosIds.clear(); // Limpa o conjunto
-        updateDeleteButtonState();
+        selectedLancamentosIds.clear(); // Limpa a seleção após a exclusão
+        updateDeleteSelectedButtonVisibility();
     } catch (e) {
         console.error("Erro ao excluir lançamentos selecionados: ", e);
         showMessageBox('Erro', 'Erro ao excluir lançamentos selecionados. Por favor, tente novamente.');
@@ -1314,212 +948,1283 @@ async function deleteInstallmentSeries(baseLancamento) {
 
 
 /**
- * Configura o listener do Firestore para buscar lançamentos.
- * Esta função é chamada uma vez na inicialização e novamente ao mudar o householdId.
+ * Exibe o modal para selecionar os meses para parar uma recorrência.
+ * @param {string} recurringId O ID do grupo de recorrência a ser parado.
+ * @param {string} originalPurchaseYear O ano da compra original da recorrência.
+ * @param {string} originalPurchaseMonth O mês da compra original da recorrência.
+ */
+function showStopRecurringMonthsModal(recurringId, originalPurchaseYear, originalPurchaseMonth) {
+    currentRecurringGroupId = recurringId;
+
+    // Resetar o estado do modal
+    stopFromCurrentMonthCheckbox.checked = false;
+    monthStopCheckboxes.forEach(cb => cb.checked = false);
+    specificMonthsSelectionDiv.classList.remove('opacity-50', 'pointer-events-none'); // Habilitar a seção de meses
+
+    const today = new Date();
+    const currentMonthName = getMonthName(today.getMonth() + 1);
+    const currentYear = today.getFullYear();
+    currentMonthAndYearSpan.textContent = `${currentMonthName}/${currentYear}`;
+
+    // Preenche as opções de ano no modal
+    stopRecurringYearSelect.innerHTML = '';
+    const startYear = currentYear - 50;
+    const endYear = currentYear + 50;
+    for (let y = startYear; y <= endYear; y++) {
+        const option = document.createElement('option');
+        option.value = y;
+        option.textContent = y;
+        if (y === currentYear) {
+            option.selected = true;
+        }
+        stopRecurringYearSelect.appendChild(option);
+    }
+
+    // Pre-seleciona o mês da compra original da recorrência se for relevante
+    if (originalPurchaseMonth && monthStopCheckboxes) {
+        const originalMonthCb = Array.from(monthStopCheckboxes).find(cb => parseInt(cb.value) === parseInt(originalPurchaseMonth));
+        if (originalMonthCb) {
+            originalMonthCb.checked = true;
+        }
+    }
+    if (originalPurchaseYear && stopRecurringYearSelect) {
+        stopRecurringYearSelect.value = originalPurchaseYear;
+    }
+
+
+    stopRecurringMonthsModalOverlay.classList.remove('hidden');
+}
+
+/**
+ * Lida com a confirmação no modal de parar recorrência.
+ */
+async function handleStopRecurringConfirmation() {
+    if (!currentRecurringGroupId) {
+        showMessageBox('Erro', 'ID do grupo recorrente não definido.');
+        return;
+    }
+
+    const stopFromCurrentMonthAndFuture = stopFromCurrentMonthCheckbox.checked;
+    let selectedMonthsForStop = [];
+    let selectedYearForStop = parseInt(stopRecurringYearSelect.value);
+
+    if (!stopFromCurrentMonthAndFuture) {
+        selectedMonthsForStop = Array.from(monthStopCheckboxes)
+            .filter(cb => cb.checked)
+            .map(cb => parseInt(cb.value));
+
+        if (selectedMonthsForStop.length === 0) {
+            showMessageBox('Aviso', 'Por favor, selecione pelo menos um mês ou marque a opção "Parar a partir do mês atual e futuros".');
+            return;
+        }
+    } else {
+        monthStopCheckboxes.forEach(cb => cb.checked = false);
+        selectedMonthsForStop = []; // Garante que a lista esteja vazia
+        selectedYearForStop = new Date().getFullYear(); // Usa o ano atual para a lógica "a partir do mês atual"
+    }
+
+    const confirmation = await showConfirmBox('Confirmação', 'Tem certeza que deseja parar esta cobrança recorrente com as opções selecionadas?');
+    if (confirmation) {
+        const currentMonth = new Date().getMonth() + 1; // Mês atual
+        await stopRecurringExpense(currentRecurringGroupId, stopFromCurrentMonthAndFuture, selectedMonthsForStop, selectedYearForStop, currentMonth);
+        stopRecurringMonthsModalOverlay.classList.add('hidden');
+    }
+}
+
+
+/**
+ * Interrompe uma cobrança recorrente, excluindo os lançamentos futuros associados ou meses específicos.
+ * @param {string} recurringGroupId O ID do grupo de recorrência.
+ * @param {boolean} stopFromCurrentMonthAndFuture Se deve parar a partir do mês atual e futuros.
+ * @param {number[]} selectedMonthsForStop Array de números dos meses selecionados para parar (se não for stopFromCurrentMonthAndFuture).
+ * @param {number} selectedYearForStop O ano para o qual a parada se aplica.
+ * @param {number} currentMonthParameter O mês atual para a lógica "a partir do mês atual".
+ */
+async function stopRecurringExpense(recurringGroupId, stopFromCurrentMonthAndFuture, selectedMonthsForStop, selectedYearForStop, currentMonthParameter) {
+    if (!isAuthReady) {
+        showMessageBox('Aguarde', 'Aplicação ainda carregando, por favor, aguarde.');
+        return;
+    }
+
+    if (!recurringGroupId) {
+        showMessageBox('Erro', 'ID do grupo recorrente não encontrado.');
+        return;
+    }
+
+    try {
+        const q = query(
+            lancamentosCollection,
+            where("recurringGroupId", "==", recurringGroupId),
+            where("householdId", "==", currentHouseholdId)
+        );
+        const querySnapshot = await getDocs(q);
+
+        const deletePromises = [];
+        let countDeleted = 0;
+        const currentFullYear = new Date().getFullYear();
+        const currentFullMonth = new Date().getMonth() + 1;
+
+        querySnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            let shouldDelete = false;
+
+            if (stopFromCurrentMonthAndFuture) {
+                if (data.ano > currentFullYear || (data.ano === currentFullYear && data.mes >= currentFullMonth)) {
+                    shouldDelete = true;
+                }
+            } else {
+                if (data.ano === selectedYearForStop && selectedMonthsForStop.includes(data.mes)) {
+                    shouldDelete = true;
+                }
+            }
+
+            if (shouldDelete) {
+                deletePromises.push(deleteDoc(doc(db, lancamentosCollection.path, docSnap.id)));
+                countDeleted++;
+            }
+        });
+
+        if (deletePromises.length > 0) {
+            await Promise.all(deletePromises);
+            showMessageBox('Sucesso', `${countDeleted} lançamentos recorrentes foram excluídos conforme sua seleção.`);
+        } else {
+            showMessageBox('Info', 'Nenhum lançamento encontrado para exclusão com os critérios selecionados.');
+        }
+    }
+    catch (e) {
+        console.error("Erro ao parar cobrança recorrente:", e);
+        if (e.code === 'failed-precondition' && e.message.includes('The query requires an index')) {
+            showMessageBox('Erro de Índice do Firestore', 'Sua consulta de parada de recorrência requer um índice no Firestore. Por favor, verifique o console do navegador para o link de criação do índice ou altere a lógica de filtragem.');
+        } else {
+            showMessageBox('Erro', `Erro ao parar a cobrança recorrente: ${e.message}. Por favor, tente novamente.`);
+        }
+    }
+}
+
+/**
+ * Atualiza o resumo mensal com base nos lançamentos filtrados.
+ */
+function updateSummary() {
+    if (!totalEntradasSpan || !totalSaidasSpan || !mediaDiariaSpan || !saldoMesSpan ||
+        !filterMesAll || !monthFilterCheckboxes || monthFilterCheckboxes.length === 0 || !filterAnoSelect || !searchBarInput || !saldoStatusBar || !saldoStatusText) {
+        console.warn("Elementos do resumo, filtro ou busca não encontrados (updateSummary). Retornando.");
+        return;
+    }
+
+    const selectedMonthsFilter = Array.from(monthFilterCheckboxes)
+        .filter(checkbox => checkbox.checked)
+        .map(checkbox => parseInt(checkbox.value));
+
+    const selectedYearFilter = filterAnoSelect.value;
+    const searchTerm = searchBarInput.value.toLowerCase().trim();
+
+    let filteredLancamentos = [...lancamentos];
+
+    if (!filterMesAll.checked && selectedMonthsFilter.length > 0) {
+        filteredLancamentos = filteredLancamentos.filter(l => selectedMonthsFilter.includes(l.mes));
+    } else if (!filterMesAll.checked && selectedMonthsFilter.length === 0) {
+        filteredLancamentos = [];
+    }
+
+    if (selectedYearFilter !== 'all') {
+        const yearNumber = parseInt(selectedYearFilter);
+        filteredLancamentos = filteredLancamentos.filter(l => l.ano === yearNumber);
+    }
+
+    if (searchTerm) {
+        filteredLancamentos = filteredLancamentos.filter(l =>
+            (l.descricao && l.descricao.toLowerCase().includes(searchTerm)) ||
+            (l.categoria && l.categoria.toLowerCase().includes(searchTerm)) ||
+            (l.valor && l.valor.toString().includes(searchTerm))
+        );
+    }
+
+    let totalEntradas = 0;
+    let totalSaidas = 0;
+    let daysInMonth = 0;
+
+    if (!filterMesAll.checked && selectedMonthsFilter.length === 1 && selectedYearFilter !== 'all') {
+        const year = parseInt(selectedYearFilter);
+        const month = parseInt(selectedMonthsFilter[0]);
+        daysInMonth = new Date(year, month, 0).getDate();
+    } else if (!filterMesAll.checked && selectedMonthsFilter.length > 1 && selectedYearFilter !== 'all') {
+        // Se vários meses são selecionados, soma os dias de cada mês
+        selectedMonthsFilter.forEach(month => {
+            daysInMonth += new Date(parseInt(selectedYearFilter), month, 0).getDate();
+        });
+    }
+
+
+    filteredLancamentos.forEach(lancamento => {
+        if (lancamento.tipo === 'entrada') {
+            totalEntradas += lancamento.valor;
+        } else if (lancamento.tipo === 'saida') {
+            totalSaidas += lancamento.valor;
+        }
+    });
+
+    const saldoMes = totalEntradas - totalSaidas;
+    const mediaDiaria = daysInMonth > 0 ? totalSaidas / daysInMonth : 0;
+
+    totalEntradasSpan.textContent = `R$ ${totalEntradas.toFixed(2).replace('.', ',')}`;
+    totalSaidasSpan.textContent = `R$ ${totalSaidas.toFixed(2).replace('.', ',')}`;
+    mediaDiariaSpan.textContent = `R$ ${mediaDiaria.toFixed(2).replace('.', ',')}`;
+    saldoMesSpan.textContent = `R$ ${saldoMes.toFixed(2).replace('.', ',')}`;
+
+    if (saldoMes >= 0) {
+        saldoMesSpan.classList.remove('text-red-700');
+        saldoMesSpan.classList.add('text-green-800');
+    } else {
+        saldoMesSpan.classList.remove('text-green-800');
+        saldoMesSpan.classList.add('text-red-700');
+    }
+
+    const totalAbsoluto = totalEntradas + totalSaidas;
+    let percentualEntradas = 0;
+
+    if (totalAbsoluto > 0) {
+        percentualEntradas = (totalEntradas / totalAbsoluto) * 100;
+    }
+
+    saldoStatusBar.style.width = `${Math.min(percentualEntradas, 100)}%`;
+
+    if (saldoMes >= 0) {
+        saldoStatusBar.classList.remove('bg-red-500');
+        saldoStatusBar.classList.add('bg-green-500');
+        saldoStatusText.textContent = 'Saldo Positivo';
+        saldoStatusText.classList.remove('text-red-700');
+        saldoStatusText.classList.add('text-green-800');
+    } else {
+        saldoStatusBar.classList.remove('bg-green-500');
+        saldoStatusBar.classList.add('bg-red-500');
+        saldoStatusText.textContent = 'Saldo Negativo';
+        saldoStatusText.classList.remove('text-green-800');
+        saldoStatusText.classList.add('text-red-700');
+    }
+}
+
+
+/**
+ * Função assíncrona para lidar com o envio do formulário de lançamento.
+ * @param {Event} event O evento de envio do formulário.
+ */
+async function addGastoBtnClickHandler(event) {
+    event.preventDefault(); // Evita o recarregamento da página
+
+    if (!isAuthReady) {
+        showMessageBox('Aguarde', 'Aplicação ainda carregando, por favor, aguarde a autenticação do utilizador.');
+        return;
+    }
+    if (!userId) {
+        showMessageBox('Erro', 'ID do utilizador não disponível. Por favor, recarregue a página.');
+        return;
+    }
+    if (!currentHouseholdId) {
+        showMessageBox('Erro', 'ID da Família/Casa não definido. Por favor, defina um ID de Família/Casa antes de adicionar lançamentos.');
+        return;
+    }
+    if (!lancamentosCollection) {
+        showMessageBox('Erro', 'Coleção do Firestore não inicializada. Recarregue a página.');
+        return;
+    }
+
+    // Coleta os valores do formulário
+    const dateInput = diaInput.value; // Pegar a data completa do input type="date"
+    const [anoStr, mesStr, diaStr] = dateInput.split('-');
+    const dia = parseInt(diaStr);
+    const mes = parseInt(mesStr);
+    const ano = parseInt(anoStr);
+
+    const descricao = descricaoInput.value.trim();
+    const valorTotal = parseFloat(valorInput.value);
+    const categoria = categoriaSelect.value;
+    const tipo = tipoEntradaRadio.checked ? tipoEntradaRadio.value : tipoSaidaRadio.value;
+    const parcelaAtual = parseInt(parcelaAtualSelect.value);
+    const totalParcelas = parseInt(totalParcelasSelect.value);
+    const isRecurring = isRecurringCheckbox.checked;
+
+    // Validações básicas
+    if (!dateInput || !descricao || isNaN(valorTotal) || valorTotal <= 0 || !categoria) {
+        showMessageBox('Erro de Validação', 'Por favor, preencha todos os campos corretamente (data, descrição, valor positivo, categoria).');
+        return;
+    }
+    if (mes < 1 || mes > 12) {
+        showMessageBox('Erro de Validação', 'Mês inválido. Por favor, insira um mês entre 1 e 12.');
+        return;
+    }
+    const currentYear = new Date().getFullYear();
+    if (ano < currentYear - 100 || ano > currentYear + 100) {
+        showMessageBox('Erro de Validação', `Ano inválido. Por favor, insira um ano entre ${currentYear - 100} e ${currentYear + 100}.`);
+        return;
+    }
+
+    // Validação para parcelas
+    if (tipo === 'saida' && !isRecurring && (parcelaAtual !== 0 || totalParcelas !== 0)) {
+        if ((isNaN(parcelaAtual) || parcelaAtual < 0) || (isNaN(totalParcelas) || totalParcelas < 0)) {
+            showMessageBox('Erro de Validação', 'Parcela atual e total de parcelas devem ser números válidos ou 0.');
+            return;
+        }
+        if ((parcelaAtual === 0 && totalParcelas > 0) || (parcelaAtual > 0 && totalParcelas === 0)) {
+            showMessageBox('Erro de Validação', 'Se um for 0, o outro também deve ser 0 para parcelas, ou ambos devem ser maiores que 0.');
+            return;
+        }
+        if (parcelaAtual > totalParcelas && totalParcelas !== 0) {
+            showMessageBox('Erro de Validação', 'A Parcela Atual não pode ser maior que o Total de Parcelas.');
+            return;
+        }
+    }
+
+
+    let recurringGroupId = null;
+    if (isRecurring) {
+        recurringGroupId = doc(collection(db, "recurringGroups")).id; // Gera um ID único para o grupo recorrente
+    }
+
+    try {
+        if (isRecurring) {
+            const batch = writeBatch(db);
+            const baseDate = new Date(ano, mes - 1, dia); // Data inicial da recorrência
+
+            for (let i = 0; i <= RECURRING_MONTHS_AHEAD; i++) {
+                const futureDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate());
+
+                // Ajuste para datas que "pulam" o dia do mês (ex: 31 de janeiro para 31 de fevereiro)
+                if (futureDate.getDate() !== baseDate.getDate()) {
+                    futureDate.setDate(0); // Último dia do mês anterior
+                    futureDate.setMonth(futureDate.getMonth() + 1); // Volta para o mês correto, no último dia
+                }
+
+                const futureDay = futureDate.getDate();
+                const futureMonth = futureDate.getMonth() + 1;
+                const futureYear = futureDate.getFullYear();
+
+                const newLancamentoRef = doc(lancamentosCollection);
+                batch.set(newLancamentoRef, {
+                    dia: futureDay,
+                    mes: futureMonth,
+                    ano: futureYear,
+                    descricao: descricao,
+                    valor: valorTotal,
+                    categoria: categoria,
+                    tipo: tipo,
+                    isRecurring: true,
+                    recurringGroupId: recurringGroupId,
+                    createdAt: serverTimestamp(), // Usa serverTimestamp para consistência
+                    userId: userId,
+                    householdId: currentHouseholdId,
+                    parcelaAtual: null,
+                    totalParcelas: null,
+                    originalPurchaseDia: dia, // Original para a série recorrente
+                    originalPurchaseMes: mes,
+                    originalPurchaseAno: ano, // Original para a série recorrente
+                });
+            }
+            await batch.commit();
+            showMessageBox('Sucesso', `Cobrança recorrente adicionada para ${RECURRING_MONTHS_AHEAD + 1} meses!`);
+
+        } else if (totalParcelas > 1) { // Geração automática de parcelas
+            const originalPurchaseDay = dia;
+            const originalPurchaseMonth = mes;
+            const originalPurchaseYear = ano;
+            const valorParcela = parseFloat((valorTotal / totalParcelas).toFixed(2));
+            const batch = writeBatch(db);
+
+            for (let i = 0; i < totalParcelas; i++) {
+                const installmentNumber = i + 1;
+                const baseDate = new Date(originalPurchaseYear, originalPurchaseMonth - 1, originalPurchaseDay);
+                const futureDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate());
+
+                 // Ajuste para datas que "pulam" o dia do mês (ex: 31 de janeiro para 31 de fevereiro)
+                if (futureDate.getDate() !== baseDate.getDate()) {
+                    futureDate.setDate(0); // Último dia do mês anterior
+                    futureDate.setMonth(futureDate.getMonth() + 1); // Volta para o mês correto, no último dia
+                }
+
+                const futureDay = futureDate.getDate();
+                const futureMonth = futureDate.getMonth() + 1;
+                const futureYear = futureDate.getFullYear();
+
+                const newLancamentoRef = doc(lancamentosCollection);
+                batch.set(newLancamentoRef, {
+                    dia: futureDay,
+                    mes: futureMonth,
+                    ano: futureYear,
+                    descricao: `${descricao} (${installmentNumber}/${totalParcelas})`,
+                    valor: valorParcela,
+                    categoria: categoria,
+                    tipo: tipo,
+                    isRecurring: false,
+                    recurringGroupId: null,
+                    createdAt: serverTimestamp(), // Usa serverTimestamp para consistência
+                    userId: userId,
+                    householdId: currentHouseholdId,
+                    parcelaAtual: installmentNumber,
+                    totalParcelas: totalParcelas,
+                    originalPurchaseDia: originalPurchaseDay,
+                    originalPurchaseMes: originalPurchaseMonth,
+                    originalPurchaseAno: originalPurchaseYear,
+                });
+            }
+            await batch.commit();
+            showMessageBox('Sucesso', `${totalParcelas} parcelas adicionadas com sucesso!`);
+        } else {
+            // Lançamento único (não recorrente e não parcelado)
+            const newLancamentoRef = doc(lancamentosCollection);
+            await setDoc(newLancamentoRef, {
+                dia: dia,
+                mes: mes,
+                ano: ano,
+                descricao: descricao,
+                valor: valorTotal,
+                categoria: categoria,
+                tipo: tipo,
+                isRecurring: false,
+                recurringGroupId: null,
+                createdAt: serverTimestamp(), // Usa serverTimestamp para consistência
+                userId: userId,
+                householdId: currentHouseholdId,
+                parcelaAtual: null,
+                totalParcelas: null,
+                originalPurchaseDia: null, // Limpa para lançamentos únicos
+                originalPurchaseMes: null,
+                originalPurchaseAno: null, // Limpa para lançamentos únicos
+            });
+            showMessageBox('Sucesso', 'Lançamento adicionado com sucesso!');
+        }
+
+        // Limpa o formulário após a adição bem-sucedida
+        lancamentoForm.reset();
+        isRecurringCheckbox.checked = false; // Reset recurring checkbox
+        parcelaAtualSelect.value = '0';
+        totalParcelasSelect.value = '0';
+        // Atualiza os campos de data para a data atual
+        const resetToday = new Date();
+        const resetDay = String(resetToday.getDate()).padStart(2, '0');
+        const resetMonth = String(resetToday.getMonth() + 1).padStart(2, '0');
+        const resetYear = resetToday.getFullYear();
+        diaInput.value = `${resetYear}-${resetMonth}-${resetDay}`;
+        mesInput.value = resetToday.getMonth() + 1;
+        anoInput.value = resetYear;
+
+    } catch (e) {
+        console.error("Erro ao adicionar lançamento: ", e);
+        showMessageBox('Erro', `Erro ao adicionar lançamento: ${e.message}. Por favor, verifique sua conexão ou tente novamente.`);
+    }
+}
+
+/**
+ * Renderiza os lançamentos na tabela, aplicando os filtros selecionados.
+ */
+function renderLancamentos() {
+    if (!gastosTableBody || !noExpensesMessage || !filterMesAll || !monthFilterCheckboxes || monthFilterCheckboxes.length === 0 || !filterAnoSelect || !searchBarInput) {
+        console.warn("Elementos da tabela, filtros ou busca não encontrados (renderLancamentos). Retornando.");
+        return;
+    }
+
+    gastosTableBody.innerHTML = ''; // Limpa a tabela
+
+    const selectedMonthsFilter = Array.from(monthFilterCheckboxes)
+        .filter(checkbox => checkbox.checked)
+        .map(checkbox => parseInt(checkbox.value));
+
+    const selectedYearFilter = filterAnoSelect.value;
+    const searchTerm = searchBarInput.value.toLowerCase().trim();
+
+    let filteredLancamentos = [...lancamentos];
+
+    if (!filterMesAll.checked && selectedMonthsFilter.length > 0) {
+        filteredLancamentos = filteredLancamentos.filter(l => selectedMonthsFilter.includes(l.mes));
+    } else if (!filterMesAll.checked && selectedMonthsFilter.length === 0 && selectedYearFilter !== 'all') {
+        // Se nenhum mês está selecionado e um ano específico está, exibe nada
+        filteredLancamentos = [];
+    } else if (filterMesAll.checked) {
+        // Se "Todos os Meses" está marcado, não filtra por mês
+        // Isso é o comportamento esperado para "Todos os Meses"
+    }
+
+
+    if (selectedYearFilter !== 'all') {
+        const yearNumber = parseInt(selectedYearFilter);
+        filteredLancamentos = filteredLancamentos.filter(l => l.ano === yearNumber);
+    }
+
+    if (searchTerm) {
+        filteredLancamentos = filteredLancamentos.filter(l =>
+            (l.descricao && l.descricao.toLowerCase().includes(searchTerm)) ||
+            (l.categoria && l.categoria.toLowerCase().includes(searchTerm)) ||
+            (l.valor && l.valor.toString().includes(searchTerm))
+        );
+    }
+
+    if (filteredLancamentos.length === 0) {
+        noExpensesMessage.classList.remove('hidden');
+        gastosTableBody.classList.add('hidden');
+    } else {
+        noExpensesMessage.classList.add('hidden');
+        gastosTableBody.classList.remove('hidden');
+
+        // Ordena os lançamentos: por ano (desc), depois mês (desc), depois dia (desc), depois createdAt (desc)
+        filteredLancamentos.sort((a, b) => {
+            if (a.ano !== b.ano) return b.ano - a.ano;
+            if (a.mes !== b.mes) return b.mes - a.mes;
+            if (a.dia !== b.dia) return b.dia - a.dia;
+            // createdAt é um Timestamp, precisa converter para comparar
+            const aCreatedAt = a.createdAt ? a.createdAt.toMillis() : 0;
+            const bCreatedAt = b.createdAt ? b.createdAt.toMillis() : 0;
+            return bCreatedAt - aCreatedAt; // Mais recente primeiro
+        });
+
+        filteredLancamentos.forEach(lancamento => {
+            let displayedDescription = lancamento.descricao;
+
+            // Determina qual data exibir para parcelas vs. outros lançamentos
+            const displayDay = (lancamento.originalPurchaseDia) ? String(lancamento.originalPurchaseDia).padStart(2, '0') : String(lancamento.dia).padStart(2, '0');
+            const displayMonth = (lancamento.originalPurchaseMes) ? String(lancamento.originalPurchaseMes).padStart(2, '0') : String(lancamento.mes).padStart(2, '0');
+            const displayYear = (lancamento.originalPurchaseAno) ? lancamento.originalPurchaseAno : lancamento.ano;
+
+            const formattedDate = `${displayDay}/${displayMonth}/${displayYear}`;
+
+            const row = document.createElement('tr');
+            row.className = `border-b border-gray-100 ${lancamento.tipo === 'entrada' ? 'bg-green-50' : 'bg-red-50'} hover:bg-gray-100 transition-colors duration-150`;
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <input type="checkbox" data-id="${lancamento.id}" class="form-checkbox h-4 w-4 text-blue-600 rounded row-checkbox" ${selectedLancamentosIds.has(lancamento.id) ? 'checked' : ''}>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800" data-id="${lancamento.id}" data-field="dataCompleta">${formattedDate}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
+                    ${lancamento.isRecurring ? `<button class="text-purple-600 hover:text-purple-900 stop-recurring-btn" data-id="${lancamento.id}" data-recurring-group-id="${lancamento.recurringGroupId}" data-original-purchase-year="${lancamento.originalPurchaseAno}" data-original-purchase-month="${lancamento.originalPurchaseMes}">Parar Recorrência</button>` : ''}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800" data-id="${lancamento.id}" data-field="descricao">${displayedDescription}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${lancamento.tipo === 'entrada' ? 'text-income' : 'text-expense'}" data-id="${lancamento.id}" data-field="valor">R$ ${lancamento.valor.toFixed(2).replace('.', ',')}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800" data-id="${lancamento.id}" data-field="categoria">${lancamento.categoria}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800" data-id="${lancamento.id}" data-field="tipo">${lancamento.tipo === 'entrada' ? 'Entrada' : 'Saída'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button class="text-indigo-600 hover:text-indigo-900 mr-3 edit-btn" data-id="${lancamento.id}">Editar</button>
+                    <button class="text-red-600 hover:text-red-900 delete-btn" data-id="${lancamento.id}">Excluir</button>
+                </td>
+            `;
+            gastosTableBody.appendChild(row);
+
+            row.querySelectorAll('td[data-field]').forEach(cell => {
+                cell.addEventListener('dblclick', () => handleEditCellClick(cell));
+            });
+            row.querySelector('.edit-btn').addEventListener('click', (e) => {
+                showMessageBox('Informação', 'Para editar um lançamento, dê um clique duplo na célula que deseja modificar.');
+            });
+            row.querySelector('.delete-btn').addEventListener('click', async (e) => {
+                const confirmation = await showConfirmBox('Confirmação', 'Tem certeza que deseja excluir este lançamento?');
+                if (confirmation) {
+                    deleteLancamento(e.target.dataset.id);
+                }
+            });
+
+            const stopRecurringBtn = row.querySelector('.stop-recurring-btn');
+            if (stopRecurringBtn) {
+                stopRecurringBtn.addEventListener('click', (e) => {
+                    const recurringId = e.target.dataset.recurringGroupId;
+                    const originalYear = e.target.dataset.originalPurchaseYear;
+                    const originalMonth = e.target.dataset.originalPurchaseMonth;
+                    showStopRecurringMonthsModal(recurringId, originalYear, originalMonth);
+                });
+            }
+
+            row.querySelector('.row-checkbox').addEventListener('change', handleRowCheckboxChange);
+        });
+    }
+    updateSelectAllCheckboxState();
+    updateDeleteSelectedButtonVisibility();
+}
+
+/**
+ * Atualiza os campos de dia, mês e ano no formulário de acordo com as parcelas selecionadas.
+ */
+function updateInstallmentDateFields() {
+    const currentParcelaAtual = parseInt(parcelaAtualSelect.value);
+    const currentTotalParcelas = parseInt(totalParcelasSelect.value);
+
+    // Se é uma cobrança recorrente, ou se não há parcelas selecionadas,
+    // os campos de data devem refletir a data atual ou o que o utilizador escolheu livremente.
+    if (isRecurringCheckbox.checked || (currentParcelaAtual === 0 && currentTotalParcelas === 0)) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = (today.getMonth() + 1).toString().padStart(2, '0');
+        const day = today.getDate().toString().padStart(2, '0');
+        diaInput.value = `${year}-${month}-${day}`;
+        mesInput.value = parseInt(month);
+        anoInput.value = year;
+
+        originalInstallmentDate.day = today.getDate();
+        originalInstallmentDate.month = today.getMonth() + 1;
+        originalInstallmentDate.year = today.getFullYear();
+        return;
+    }
+
+    // Se parcelas estão selecionadas e originalInstallmentDate ainda não foi definida, usa a data do input
+    if ((currentParcelaAtual > 0 || currentTotalParcelas > 0) && originalInstallmentDate.day === null) {
+        try {
+            const selectedDate = new Date(diaInput.value + 'T00:00:00');
+            if (!isNaN(selectedDate.getTime())) {
+                originalInstallmentDate.day = selectedDate.getDate();
+                originalInstallmentDate.month = selectedDate.getMonth() + 1;
+                originalInstallmentDate.year = selectedDate.getFullYear();
+            }
+        } catch (e) {
+            console.warn("Erro ao definir originalInstallmentDate a partir do diaInput:", e);
+        }
+    }
+
+    // Se a parcela atual é 1, a data base é a data informada no input de dia
+    if (currentParcelaAtual === 1 && totalParcelasSelect.value !== '0') {
+        try {
+            const selectedDate = new Date(diaInput.value + 'T00:00:00');
+            if (!isNaN(selectedDate.getTime())) {
+                originalInstallmentDate.day = selectedDate.getDate();
+                originalInstallmentDate.month = selectedDate.getMonth() + 1;
+                originalInstallmentDate.year = selectedDate.getFullYear();
+            } else {
+                // Fallback para a data atual se o input for inválido
+                const today = new Date();
+                originalInstallmentDate.day = today.getDate();
+                originalInstallmentDate.month = today.getMonth() + 1;
+                originalInstallmentDate.year = today.getFullYear();
+            }
+        } catch (e) {
+            console.error("Erro ao parsear data do diaInput para originalInstallmentDate:", e);
+            const today = new Date();
+            originalInstallmentDate.day = today.getDate();
+            originalInstallmentDate.month = today.getMonth() + 1;
+            originalInstallmentDate.year = today.getFullYear();
+        }
+    }
+
+    // Calcula a data da parcela atual
+    if (originalInstallmentDate.day !== null && currentParcelaAtual > 0 && currentTotalParcelas > 0) {
+        const baseDate = new Date(originalInstallmentDate.year, originalInstallmentDate.month - 1, originalInstallmentDate.day);
+        const targetDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + (currentParcelaAtual - 1), originalInstallmentDate.day);
+
+        // Lógica para lidar com o "overflow" do dia (ex: 31 de janeiro + 1 mês = 3 de março, se fevereiro tiver 28 dias)
+        if (targetDate.getDate() !== originalInstallmentDate.day) {
+            targetDate.setDate(0); // Vai para o último dia do mês anterior
+            targetDate.setMonth(targetDate.getMonth() + 1); // Volta para o mês atual, no último dia
+        }
+
+        const newDay = String(targetDate.getDate()).padStart(2, '0');
+        const newMonth = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const newYear = targetDate.getFullYear();
+
+        diaInput.value = `${newYear}-${newMonth}-${newDay}`;
+        mesInput.value = parseInt(newMonth);
+        anoInput.value = newYear;
+    }
+}
+
+
+/**
+ * Configura o listener em tempo real para a coleção de lançamentos do Firestore.
  */
 function setupFirestoreListener() {
+    if (!db || !lancamentosCollection) {
+        console.error("Firestore ou coleção não inicializados para o listener.");
+        return;
+    }
     if (!currentHouseholdId) {
-        console.warn("currentHouseholdId não definido. Não será possível buscar lançamentos.");
-        gastosTableBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-gray-500">Nenhum ID de Família/Casa definido. Por favor, defina um ID acima.</td></tr>';
+        console.warn("setupFirestoreListener: currentHouseholdId não está definido, não será possível carregar os lançamentos.");
+        if (gastosTableBody) gastosTableBody.innerHTML = '';
+        if (noExpensesMessage) noExpensesMessage.classList.remove('hidden');
         return;
     }
 
     // A consulta que requer o índice composto
     const q = query(
         lancamentosCollection,
-        where('householdId', '==', currentHouseholdId),
+        where("householdId", "==", currentHouseholdId),
         orderBy('ano', 'desc'),
         orderBy('mes', 'desc'),
         orderBy('dia', 'desc'),
         orderBy('createdAt', 'desc') // Garante uma ordem única para resultados estáveis
     );
 
-    onSnapshot(q, (querySnapshot) => {
+    // onSnapshot fornece atualizações em tempo real
+    if (typeof window.unsubscribeFirestore !== 'undefined' && window.unsubscribeFirestore !== null) {
+        window.unsubscribeFirestore(); // Desinscreve o listener anterior
+    }
+
+    window.unsubscribeFirestore = onSnapshot(q, (snapshot) => {
         lancamentos = []; // Limpa os lançamentos existentes
-        querySnapshot.forEach((doc) => {
-            lancamentos.push({ id: doc.id, ...doc.data() });
+        const updatePromises = [];
+
+        snapshot.forEach((docSnap) => {
+            let data = docSnap.data();
+            let needsUpdate = false;
+
+            // Lógica de migração em leitura para lançamentos parcelados (garante originalPurchaseDia/Mes/Ano)
+            if (data.parcelaAtual && data.totalParcelas && data.parcelaAtual > 0 && data.totalParcelas > 0) {
+                if (data.originalPurchaseDia === undefined || data.originalPurchaseDia === null) {
+                    data.originalPurchaseDia = data.dia;
+                    data.originalPurchaseMes = data.mes;
+                    data.originalPurchaseAno = data.ano;
+                    needsUpdate = true;
+                }
+            }
+
+            // Garante que 'createdAt' é um Timestamp e o converte para um objeto Date se necessário
+            if (data.createdAt && typeof data.createdAt.toDate === 'function') {
+                data.createdAt = data.createdAt.toDate(); // Converte Timestamp para Date
+            } else if (!data.createdAt) {
+                data.createdAt = new Date(data.ano, data.mes - 1, data.dia, 12, 0, 0); // Cria um Date se ausente
+                needsUpdate = true;
+            }
+
+            lancamentos.push({ id: docSnap.id, ...data });
+
+            if (needsUpdate) {
+                const docRef = doc(db, lancamentosCollection.path, docSnap.id);
+                // Usar serverTimestamp() aqui causaria loops se o createdAt fosse a única coisa a ser atualizada.
+                // Mas como estamos migrando outros campos, podemos fazer um setDoc com merge.
+                // Se createdAt foi recém-criado, setamos com o valor que queremos.
+                setDoc(docRef, {
+                    originalPurchaseDia: data.originalPurchaseDia,
+                    originalPurchaseMes: data.originalPurchaseMes,
+                    originalPurchaseAno: data.originalPurchaseAno,
+                    createdAt: data.createdAt // Salva o Date de volta, Firestore converterá para Timestamp
+                }, { merge: true }).catch(e => console.error("Firestore: Erro ao atualizar lançamento durante a migração:", e));
+            }
         });
 
-        // Aplica o filtro de mês e ano antes de renderizar
         renderLancamentos();
         updateSummary();
     }, (error) => {
-        console.error("Erro ao buscar lançamentos: ", error);
-        showMessageBox('Erro de Dados', `Erro ao carregar lançamentos: ${error.message}. Verifique sua conexão e permissões.`);
+        console.error("Erro ao receber dados do Firestore: ", error);
+        showMessageBox("Erro de Sincronização", `Não foi possível sincronizar os dados com o Firestore. Por favor, verifique sua conexão ou as regras de segurança.`);
         gastosTableBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-red-500">Erro ao carregar lançamentos.</td></tr>';
     });
 }
 
 /**
- * Renderiza os lançamentos na tabela, aplicando filtros e busca.
+ * Função assíncrona para categorizar a descrição usando a Gemini API.
+ * @param {string} description A descrição do lançamento.
+ * @returns {Promise<string|null>} A categoria sugerida ou null em caso de erro.
  */
-function renderLancamentos() {
-    gastosTableBody.innerHTML = ''; // Limpa a tabela
-
-    let filteredLancamentos = [...lancamentos]; // Cria uma cópia para filtrar
-
-    // Aplicar filtro de ano
-    const selectedAno = parseInt(filterAnoSelect.value);
-    if (!isNaN(selectedAno)) {
-        filteredLancamentos = filteredLancamentos.filter(l => l.ano === selectedAno);
+async function categorizeDescription(description) {
+    if (!description.trim()) {
+        return null;
     }
 
-    // Aplicar filtro de mês
-    const selectedMonths = Array.from(monthFilterCheckboxes)
-                                .filter(cb => cb.checked)
-                                .map(cb => parseInt(cb.value));
+    const categories = ["Salário", "Renda Extra", "Investimento", "Alimentação", "Transporte", "Lazer", "Moradia", "Contas", "Educação", "Saúde", "Outros"];
+    const prompt = `Dada a seguinte descrição de um lançamento financeiro, categorize-o em uma das seguintes categorias: ${categories.join(', ')}. Retorne apenas o nome da categoria. Se a descrição não se encaixar claramente em nenhuma, retorne "Outros".
+    Descrição: "${description}"
+    Categoria:`;
 
-    if (selectedMonths.length > 0 && selectedMonths.length < 12) { // Se nem todos os meses estão selecionados
-        filteredLancamentos = filteredLancamentos.filter(l => selectedMonths.includes(l.mes));
-    }
-
-    // Aplicar filtro de busca
-    const searchTerm = searchBarInput.value.toLowerCase().trim();
-    if (searchTerm) {
-        filteredLancamentos = filteredLancamentos.filter(l =>
-            l.descricao.toLowerCase().includes(searchTerm) ||
-            l.categoria.toLowerCase().includes(searchTerm)
-        );
-    }
-
-    if (filteredLancamentos.length === 0) {
-        noExpensesMessage.classList.remove('hidden');
-        gastosTableBody.innerHTML = '';
-        return;
-    } else {
-        noExpensesMessage.classList.add('hidden');
-    }
-
-    // Sort lancamentos for consistent display, most recent first
-    filteredLancamentos.sort((a, b) => {
-        if (a.ano !== b.ano) return b.ano - a.ano;
-        if (a.mes !== b.mes) return b.mes - a.mes;
-        if (a.dia !== b.dia) return b.dia - a.dia;
-        // Fallback for same day, month, year (e.g., by createdAt timestamp if available)
-        if (a.createdAt && b.createdAt) {
-             return b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime();
+    let chatHistory = [];
+    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+    const payload = {
+        contents: chatHistory,
+        generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: "OBJECT",
+                properties: {
+                    "category": { "type": "STRING" }
+                }
+            }
         }
-        return 0;
-    });
+    };
+    const apiKey = ""; // API Key será injetada pelo ambiente
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-    filteredLancamentos.forEach(lancamento => {
-        const row = gastosTableBody.insertRow();
-        row.className = `border-b ${lancamento.tipo === 'entrada' ? 'bg-green-50' : 'bg-red-50'} hover:bg-gray-100 transition-colors duration-200`;
+    if (categoryLoadingIndicator) {
+        categoryLoadingIndicator.classList.remove('hidden');
+        categoryLoadingIndicator.textContent = 'Categorizando...';
+    }
 
-        const isChecked = selectedLancamentosIds.has(lancamento.id);
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
 
-        row.innerHTML = `
-            <td class="px-4 py-2 text-center">
-                <input type="checkbox" class="select-item-checkbox form-checkbox h-4 w-4 text-blue-600 rounded" data-id="${lancamento.id}" ${isChecked ? 'checked' : ''}>
-            </td>
-            <td class="px-4 py-2 text-sm text-gray-800 text-center" data-id="${lancamento.id}" data-field="dataCompleta">${String(lancamento.dia).padStart(2, '0')}/${String(lancamento.mes).padStart(2, '0')}/${lancamento.ano}</td>
-            <td class="px-4 py-2 text-sm text-gray-800" data-id="${lancamento.id}" data-field="descricao">${lancamento.descricao}</td>
-            <td class="px-4 py-2 text-sm ${lancamento.tipo === 'entrada' ? 'text-income' : 'text-expense'} text-right" data-id="${lancamento.id}" data-field="valor">${lancamento.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-            <td class="px-4 py-2 text-sm text-gray-800" data-id="${lancamento.id}" data-field="categoria">${lancamento.categoria}</td>
-            <td class="px-4 py-2 text-sm text-center" data-id="${lancamento.id}" data-field="tipo">
-                <span class="px-2 py-1 rounded-full text-xs font-semibold ${lancamento.tipo === 'entrada' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}">
-                    ${lancamento.tipo === 'entrada' ? 'Entrada' : 'Saída'}
-                </span>
-            </td>
-            <td class="px-4 py-2 text-sm text-gray-600 text-center" data-id="${lancamento.id}" data-field="parcelaAtual">${lancamento.parcelaAtual ? `${lancamento.parcelaAtual}/${lancamento.totalParcelas}` : '-'}</td>
-            <td class="px-4 py-2 text-sm text-center">
-                ${lancamento.isRecurring ? `<button class="stop-recurring-btn text-blue-500 hover:text-blue-700 font-medium text-xs px-2 py-1 rounded-md bg-blue-100 hover:bg-blue-200 transition-colors" data-recurring-group-id="${lancamento.recurringGroupId}" data-original-purchase-year="${lancamento.originalPurchaseAno}" data-original-purchase-month="${lancamento.originalPurchaseMes}">Parar Recorrência</button>` : '-'}
-            </td>
-            <td class="px-4 py-2 text-center">
-                <button class="delete-btn text-red-500 hover:text-red-700 focus:outline-none" data-id="${lancamento.id}">
-                    <svg class="w-5 h-5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 0 00-1-1h-4a1 0 00-1 1v3M4 7h16"></path></svg>
-                </button>
-            </td>
-        `;
-    });
-    updateDeleteButtonState();
-    updateSelectAllCheckboxState();
+        const result = await response.json();
+
+        if (categoryLoadingIndicator) {
+            categoryLoadingIndicator.classList.add('hidden');
+            categoryLoadingIndicator.textContent = '';
+        }
+
+        if (result.candidates && result.candidates.length > 0 &&
+            result.candidates[0].content && result.candidates[0].content.parts &&
+            result.candidates[0].content.parts.length > 0) {
+
+            const jsonText = result.candidates[0].content.parts[0].text;
+            let parsedJson;
+            try {
+                parsedJson = JSON.parse(jsonText);
+            } catch (parseError) {
+                console.error("Erro ao fazer parse do JSON da API:", parseError);
+                console.error("Resposta bruta da API:", jsonText);
+                return null;
+            }
+
+            const suggestedCategory = parsedJson.category;
+            if (categories.includes(suggestedCategory)) {
+                return suggestedCategory;
+            } else {
+                console.warn(`Categoria sugerida pela IA "${suggestedCategory}" não é válida. Retornando "Outros".`);
+                return "Outros";
+            }
+        } else {
+            console.warn("Resposta da API Gemini não contém a estrutura esperada:", result);
+            return null;
+        }
+    } catch (error) {
+        console.error("Erro ao chamar a API Gemini para categorização:", error);
+        if (categoryLoadingIndicator) {
+            categoryLoadingIndicator.classList.add('hidden');
+            categoryLoadingIndicator.textContent = '';
+        }
+        return null;
+    }
 }
 
 /**
- * Atualiza os totais de entradas, saídas, saldo e média diária.
+ * Função para atribuir todos os elementos DOM e configurar seus listeners.
+ * Deve ser chamada apenas quando o DOM estiver completamente carregado e o Firebase estiver pronto.
  */
-function updateSummary() {
-    const selectedAno = parseInt(filterAnoSelect.value);
-    const selectedMonths = Array.from(monthFilterCheckboxes)
-                                .filter(cb => cb.checked)
-                                .map(cb => parseInt(cb.value));
+function initializeUI() {
+    // Atribui e verifica todos os elementos DOM aqui
+    // É CRÍTICO que todos os IDs abaixo existam no seu HTML!
+    firebaseStatusDiv = document.getElementById('firebase-status');
+    authModal = document.getElementById('auth-modal');
+    loginForm = document.getElementById('login-form');
+    registerForm = document.getElementById('register-form');
+    showRegisterLink = document.getElementById('show-register');
+    showLoginLink = document.getElementById('show-login');
+    logoutButton = document.getElementById('logout-button');
+    dashboardSection = document.getElementById('dashboard');
+    loggedUserNameSpan = document.getElementById('logged-user-name');
+    googleLoginBtn = document.getElementById('google-login-btn');
+    forgotPasswordLink = document.getElementById('forgot-password-link');
 
-    let totalEntradas = 0;
-    let totalSaidas = 0;
-    let daysInMonthCount = 0; // Para calcular a média diária
+    lancamentoForm = document.getElementById('lancamentoForm');
+    diaInput = document.getElementById('dia');
+    mesInput = document.getElementById('mes');
+    anoInput = document.getElementById('ano');
+    descricaoInput = document.getElementById('descricao');
+    valorInput = document.getElementById('valor');
+    categoriaSelect = document.getElementById('categoria');
+    tipoEntradaRadio = document.getElementById('tipoEntrada');
+    tipoSaidaRadio = document.getElementById('tipoSaida');
+    addGastoBtn = document.getElementById('addGastoBtn');
+    gastosTableBody = document.getElementById('gastosTableBody');
+    totalEntradasSpan = document.getElementById('totalEntradas');
+    totalSaidasSpan = document.getElementById('totalSaidas');
+    mediaDiariaSpan = document.getElementById('mediaDiaria');
+    saldoMesSpan = document.getElementById('saldoMes');
+    filterMesGroup = document.getElementById('filterMesGroup');
+    filterMesAll = document.getElementById('filterMesAll');
+    filterAnoSelect = document.getElementById('filterAno');
+    noExpensesMessage = document.getElementById('no-expenses-message');
+    parcelaAtualSelect = document.getElementById('parcelaAtual');
+    totalParcelasSelect = document.getElementById('totalParcelas');
+    parcelaFieldsDiv = document.getElementById('parcelaFields');
+    userIdDisplay = document.getElementById('user-id-display');
+    joinHouseholdIdInput = document.getElementById('joinHouseholdIdInput');
+    setHouseholdIdBtn = document.getElementById('setHouseholdIdBtn');
+    selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+    isRecurringCheckbox = document.getElementById('isRecurring');
+    saldoStatusBar = document.getElementById('saldoBar'); // Corrigido ID para 'saldoBar'
+    saldoStatusText = document.getElementById('saldoStatus');
+    stopRecurringMonthsModalOverlay = document.getElementById('stopRecurringMonthsModalOverlay');
+    stopFromCurrentMonthCheckbox = document.getElementById('stopFromCurrentMonthCheckbox');
+    currentMonthAndYearSpan = document.getElementById('currentMonthAndYear');
+    specificMonthsSelectionDiv = document.getElementById('specificMonthsSelection');
+    stopRecurringYearSelect = document.getElementById('stopRecurringYearSelect');
+    cancelStopRecurringBtn = document.getElementById('cancelStopRecurringBtn');
+    confirmStopRecurringBtn = document.getElementById('confirmStopRecurringBtn');
+    searchBarInput = document.getElementById('searchBar');
+    categoryLoadingIndicator = document.getElementById('categoryLoadingIndicator');
+    editRecurringChoiceModalOverlay = document.getElementById('editRecurringChoiceModalOverlay');
+    editRecurringChoiceMessage = document.getElementById('editRecurringChoiceMessage');
+    applyToThisBtn = document.getElementById('applyToThisBtn');
+    applyToFutureBtn = document.getElementById('applyToFutureBtn');
+    cancelEditRecurringBtn = document.getElementById('cancelEditRecurringBtn');
 
-    // Calcula a média diária apenas para o mês selecionado
-    if (selectedMonths.length === 1 && !isNaN(selectedAno)) {
-        const daysInSelectedMonth = new Date(selectedAno, selectedMonths[0], 0).getDate();
-        daysInMonthCount = daysInSelectedMonth;
-    } else if (selectedMonths.length > 1 && !isNaN(selectedAno)) {
-        // Se vários meses são selecionados, soma os dias de cada mês
-        selectedMonths.forEach(month => {
-            daysInMonthCount += new Date(selectedAno, month, 0).getDate();
+
+    // Tratamento especial para NodeList elements (classes)
+    monthFilterCheckboxes = document.querySelectorAll('.month-filter-checkbox');
+    monthStopCheckboxes = document.querySelectorAll('.month-stop-checkbox');
+
+
+    // Lógica para mostrar/esconder forms de autenticação
+    const showRegisterForm = () => {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'flex';
+    };
+
+    const showLoginForm = () => {
+        loginForm.style.display = 'flex';
+        registerForm.style.display = 'none';
+    };
+
+    // Adiciona Listeners para os botões de login/registro
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = loginForm['login-email'].value;
+            const password = loginForm['login-password'].value;
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                console.log('Login com e-mail/senha bem-sucedido!');
+            } catch (error) {
+                showMessageBox('Erro de Login', `Falha no login: ${error.message}`);
+                console.error("Erro de login:", error);
+            }
+        });
+    }
+
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = registerForm['register-name'].value;
+            const email = registerForm['register-email'].value;
+            const password = registerForm['register-password'].value;
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await userCredential.user.updateProfile({ displayName: name });
+                showMessageBox('Sucesso', 'Cadastro realizado com sucesso! Faça login.');
+                console.log('Cadastro de usuário bem-sucedido!');
+                showLoginForm(); // Volta para o formulário de login após o registro
+            } catch (error) {
+                showMessageBox('Erro de Cadastro', `Falha no cadastro: ${error.message}`);
+                console.error("Erro de cadastro:", error);
+            }
+        });
+    }
+
+    if (googleLoginBtn) {
+        googleLoginBtn.addEventListener('click', async () => {
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+                console.log('Login com Google bem-sucedido!');
+            } catch (error) {
+                showMessageBox('Erro de Login com Google', `Falha no login com Google: ${error.message}`);
+                console.error("Erro de login com Google:", error);
+            }
+        });
+    }
+
+    if (logoutButton) {
+        logoutButton.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                console.log('Logout bem-sucedido!');
+            } catch (error) {
+                console.error("Erro ao fazer logout:", error);
+            }
+        });
+    }
+
+    if (forgotPasswordLink) {
+        forgotPasswordLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = prompt("Por favor, digite seu e-mail para resetar a senha:"); // Usando prompt por simplicidade, ideal seria um modal
+            if (email) {
+                try {
+                    await sendPasswordResetEmail(auth, email);
+                    showMessageBox("Sucesso", "Um e-mail para resetar sua senha foi enviado!");
+                    console.log('E-mail de reset de senha enviado!');
+                } catch (error) {
+                    showMessageBox('Erro de Redefinição de Senha', `Erro ao resetar senha: ${error.message}`);
+                    console.error("Erro ao resetar senha:", error);
+                }
+            }
+        });
+    }
+
+    if (showRegisterLink) {
+        showRegisterLink.addEventListener('click', (e) => { e.preventDefault(); showRegisterForm(); });
+    }
+    if (showLoginLink) {
+        showLoginLink.addEventListener('click', (e) => { e.preventDefault(); showLoginForm(); });
+    }
+
+    // Inicializa valores padrão para o formulário de adição
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0'); // Meses são 0-indexedados
+    const year = today.getFullYear();
+    if (diaInput) diaInput.value = `${year}-${month}-${day}`;
+    if (mesInput) mesInput.value = today.getMonth() + 1;
+    if (anoInput) anoInput.value = today.getFullYear();
+
+    // Inicializa a data original da parcela com a data atual
+    originalInstallmentDate.day = today.getDate();
+    originalInstallmentDate.month = today.getMonth() + 1;
+    originalInstallmentDate.year = today.getFullYear();
+
+    // Preenche dinamicamente as opções de Ano para o formulário de adição
+    const currentYear = today.getFullYear();
+    let yearOptions = '<option value="">Selecione o Ano</option>';
+    for (let y = currentYear - 100; y <= currentYear + 100; y++) {
+        yearOptions += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`;
+    }
+    if (anoInput) anoInput.innerHTML = yearOptions;
+
+    // Preenche dinamicamente as opções de Ano para o filtro
+    let filterYearOptions = '<option value="all">Todos os Anos</option>';
+    for (let y = currentYear - 100; y <= currentYear + 100; y++) {
+        filterYearOptions += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`;
+    }
+    if (filterAnoSelect) filterAnoSelect.innerHTML = filterYearOptions;
+
+    // Preenche as opções de Parcelas
+    if (parcelaAtualSelect) parcelaAtualSelect.innerHTML = '<option value="0">-</option>';
+    if (totalParcelasSelect) totalParcelasSelect.innerHTML = '<option value="0">-</option>';
+    for (let i = 1; i <= 24; i++) { // Ampliado para 24 parcelas
+        const optionAtual = document.createElement('option');
+        optionAtual.value = i;
+        optionAtual.textContent = i;
+        if (parcelaAtualSelect) parcelaAtualSelect.appendChild(optionAtual);
+
+        const optionTotal = document.createElement('option');
+        optionTotal.value = i;
+        optionTotal.textContent = i;
+        if (totalParcelasSelect) totalParcelasSelect.appendChild(optionTotal);
+    }
+
+    // Define a visibilidade inicial dos campos de parcela: SEMPRE VISÍVEL por padrão
+    if (parcelaFieldsDiv) parcelaFieldsDiv.classList.remove('hidden');
+
+
+    // Adiciona Event Listeners
+    if (lancamentoForm) lancamentoForm.addEventListener('submit', addGastoBtnClickHandler);
+
+    // Listener para o diaInput para atualizar mês e ano automaticamente
+    if (diaInput && mesInput && anoInput) {
+        diaInput.addEventListener('change', () => {
+            const selectedDate = new Date(diaInput.value + 'T00:00:00');
+            if (!isNaN(selectedDate.getTime())) {
+                mesInput.value = selectedDate.getMonth() + 1;
+                anoInput.value = selectedDate.getFullYear();
+                if (parseInt(parcelaAtualSelect.value) === 1 && parseInt(totalParcelasSelect.value) > 0) {
+                    originalInstallmentDate.day = selectedDate.getDate();
+                    originalInstallmentDate.month = selectedDate.getMonth() + 1;
+                    originalInstallmentDate.year = selectedDate.getFullYear();
+                }
+            } else {
+                mesInput.value = '';
+                anoInput.value = '';
+            }
+        });
+    }
+
+    // Listener para o campo de descrição para categorização inteligente
+    let debounceTimer;
+    if (descricaoInput && categoriaSelect && categoryLoadingIndicator) {
+        descricaoInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(async () => {
+                const description = descricaoInput.value;
+                const suggestedCategory = await categorizeDescription(description);
+                if (suggestedCategory) {
+                    const options = Array.from(categoriaSelect.options).map(option => option.value);
+                    if (options.includes(suggestedCategory)) {
+                        categoriaSelect.value = suggestedCategory;
+                    } else {
+                        categoriaSelect.value = 'Outros';
+                    }
+                }
+            }, 500);
+        });
+    }
+
+    // Adiciona listeners para os checkboxes de mês (filterMesGroup e monthFilterCheckboxes)
+    if (filterMesAll) {
+        filterMesAll.addEventListener('change', handleFilterMesAllChange);
+        filterMesAll.checked = true; // Marcar "Todos os Meses" por padrão ao carregar
+    }
+
+    if (monthFilterCheckboxes) {
+        monthFilterCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', handleMonthFilterCheckboxChange);
+        });
+        updateMonthFilterCheckboxesState();
+    }
+
+
+    if (filterAnoSelect) {
+        filterAnoSelect.addEventListener('change', () => {
+            updateSummary();
+            renderLancamentos();
+        });
+    }
+
+    if (selectAllCheckbox) selectAllCheckbox.addEventListener('change', handleSelectAllChange);
+
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.addEventListener('click', async () => {
+            const confirmation = await showConfirmBox('Confirmação', 'Tem certeza que deseja excluir os lançamentos selecionados?');
+            if (confirmation) {
+                deleteSelectedLancamentos();
+            }
+        });
+    }
+
+    if (isRecurringCheckbox && parcelaAtualSelect && totalParcelasSelect) {
+        isRecurringCheckbox.addEventListener('change', (event) => {
+            if (event.target.checked) {
+                parcelaAtualSelect.value = '0';
+                totalParcelasSelect.value = '0';
+            }
+            updateInstallmentDateFields();
+        });
+    }
+
+    // Listeners para atualizar a data quando parcelaAtual ou totalParcelas mudam
+    if (parcelaAtualSelect) parcelaAtualSelect.addEventListener('change', updateInstallmentDateFields);
+    if (totalParcelasSelect) totalParcelasSelect.addEventListener('change', updateInstallmentDateFields);
+
+    // Listeners para o modal de parar recorrência
+    if (stopFromCurrentMonthCheckbox && specificMonthsSelectionDiv && monthStopCheckboxes) {
+        stopFromCurrentMonthCheckbox.addEventListener('change', (event) => {
+            if (event.target.checked) {
+                specificMonthsSelectionDiv.classList.add('opacity-50', 'pointer-events-none');
+                monthStopCheckboxes.forEach(cb => cb.checked = false);
+            } else {
+                specificMonthsSelectionDiv.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        });
+    }
+    if (cancelStopRecurringBtn) cancelStopRecurringBtn.addEventListener('click', () => {
+        stopRecurringMonthsModalOverlay.classList.add('hidden');
+    });
+    if (confirmStopRecurringBtn) confirmStopRecurringBtn.addEventListener('click', handleStopRecurringConfirmation);
+
+    // Listener para o botão "Definir ID"
+    if (setHouseholdIdBtn && joinHouseholdIdInput) {
+        setHouseholdIdBtn.addEventListener('click', () => {
+            const newHouseholdId = joinHouseholdIdInput.value.trim();
+            if (newHouseholdId) {
+                currentHouseholdId = newHouseholdId;
+                localStorage.setItem('savedHouseholdId', currentHouseholdId);
+                showMessageBox('Sucesso', `ID da Família/Casa alterado para: ${currentHouseholdId}`);
+                if (userIdDisplay) userIdDisplay.textContent = `ID do Usuário: ${userId} (Household: ${currentHouseholdId})`;
+                setupFirestoreListener(); // Re-configura o listener com o novo ID
+            } else {
+                showMessageBox('Aviso', 'Por favor, insira um ID de Família/Casa válido.');
+            }
+        });
+    }
+
+    // Listener para o campo de busca
+    if (searchBarInput) {
+        searchBarInput.addEventListener('input', () => {
+            renderLancamentos();
+            updateSummary();
         });
     }
 
 
-    lancamentos.forEach(lancamento => {
-        const matchesYear = isNaN(selectedAno) || lancamento.ano === selectedAno;
-        const matchesMonth = selectedMonths.length === 0 || selectedMonths.includes(lancamento.mes);
-
-        if (matchesYear && matchesMonth) {
-            if (lancamento.tipo === 'entrada') {
-                totalEntradas += lancamento.valor;
-            } else {
-                totalSaidas += lancamento.valor;
+    // Listeners para o modal de escolha de edição recorrente/parcelada
+    if (applyToThisBtn && applyToFutureBtn && cancelEditRecurringBtn && editRecurringChoiceModalOverlay) {
+        applyToThisBtn.addEventListener('click', () => {
+            if (pendingEditData) {
+                applyEditToSingleLancamento(
+                    pendingEditData.id,
+                    pendingEditData.field,
+                    pendingEditData.newValue,
+                    pendingEditData.currentLancamento
+                );
+                pendingEditData = null;
             }
-        }
-    });
-
-    const saldo = totalEntradas - totalSaidas;
-    const mediaDiaria = daysInMonthCount > 0 ? totalSaidas / daysInMonthCount : 0; // Média de gastos
-
-    totalEntradasSpan.textContent = totalEntradas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    totalSaidasSpan.textContent = totalSaidas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    saldoMesSpan.textContent = saldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    mediaDiariaSpan.textContent = mediaDiaria.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-    // Atualiza a barra de status do saldo
-    if (saldoStatusBar) {
-        if (saldo > 0) {
-            saldoStatusBar.className = 'w-full h-2 rounded-full bg-green-400';
-            saldoStatusText.textContent = 'Positivo';
-            saldoStatusText.className = 'text-green-600 font-semibold';
-        } else if (saldo < 0) {
-            saldoStatusBar.className = 'w-full h-2 rounded-full bg-red-400';
-            saldoStatusText.textContent = 'Negativo';
-            saldoStatusText.className = 'text-red-600 font-semibold';
-        } else {
-            saldoStatusBar.className = 'w-full h-2 rounded-full bg-gray-400';
-            saldoStatusText.textContent = 'Zero';
-            saldoStatusText.className = 'text-gray-600 font-semibold';
-        }
+            editRecurringChoiceModalOverlay.classList.add('hidden');
+        });
+        applyToFutureBtn.addEventListener('click', () => {
+            if (pendingEditData) {
+                applyEditToSeriesLancamentos(
+                    pendingEditData.id,
+                    pendingEditData.field,
+                    pendingEditData.newValue,
+                    pendingEditData.currentLancamento,
+                    pendingEditData.type
+                );
+                pendingEditData = null;
+            }
+            editRecurringChoiceModalOverlay.classList.add('hidden');
+        });
+        cancelEditRecurringBtn.addEventListener('click', () => {
+            // Restore original cell content if user cancels propagation
+            if (pendingEditData && pendingEditData.originalCellContent) {
+                 const cellToRestore = document.querySelector(`[data-id="${pendingEditData.id}"][data-field="${pendingEditData.field}"]`);
+                 if(cellToRestore) cellToRestore.innerHTML = pendingEditData.originalCellContent;
+            }
+            pendingEditData = null;
+            editRecurringChoiceModalOverlay.classList.add('hidden');
+        });
     }
 }
 
 
-// Firebase Initialization
+// Inicializa o Firebase e, em seguida, a UI após a autenticação
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        if (!firebaseConfig || Object.keys(firebaseConfig).length === 0 || !firebaseConfig.apiKey || !firebaseConfig.projectId) {
+            showMessageBox("Erro de Configuração", "As configurações do Firebase estão ausentes ou incompletas. Por favor, preencha as credenciais no script.js.");
+            console.error("Firebase config is empty or invalid:", firebaseConfig);
+            return; // Interrompe a inicialização se a config for inválida
+        }
+
         app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
 
+        // Exibe o modal de autenticação por padrão
+        if (authModal) authModal.style.display = 'flex';
+        if (dashboardSection) dashboardSection.classList.add('hidden'); // Garante que o dashboard está escondido
+
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 userId = user.uid;
+                // Esconde o modal de autenticação e mostra o dashboard
+                if (authModal) authModal.style.display = 'none';
+                if (dashboardSection) dashboardSection.classList.remove('hidden');
+
+                // Carrega o nome do usuário para exibição
+                let userName = user.displayName || user.email || 'Usuário Anônimo';
+                if (loggedUserNameSpan) loggedUserNameSpan.textContent = `Olá, ${userName}!`;
+                if (logoutButton) logoutButton.classList.remove('hidden');
+
+
             } else {
                 // Tenta autenticação anônima se não houver utilizador logado
                 try {
-                    const userCredential = await signInAnonymously(auth);
-                    userId = userCredential.user.uid;
-                    showMessageBox('Autenticação', 'Autenticado anonimamente. Seus dados estão vinculados a este dispositivo.');
+                    if (initialAuthToken) {
+                        const userCredential = await signInWithCustomToken(auth, initialAuthToken);
+                        userId = userCredential.user.uid;
+                        showMessageBox('Autenticação', 'Autenticado com token personalizado.');
+                    } else {
+                        const userCredential = await signInAnonymously(auth);
+                        userId = userCredential.user.uid;
+                        showMessageBox('Autenticação', 'Autenticado anonimamente. Seus dados estão vinculados a este dispositivo.');
+                    }
+                     // Esconde o modal de autenticação e mostra o dashboard
+                     if (authModal) authModal.style.display = 'none';
+                     if (dashboardSection) dashboardSection.classList.remove('hidden');
+                     // Para usuários anônimos, definir um nome genérico
+                     if (loggedUserNameSpan) loggedUserNameSpan.textContent = `Olá, Usuário Anônimo!`;
+                     if (logoutButton) logoutButton.classList.remove('hidden');
+
                 } catch (error) {
-                    console.error("Erro na autenticação anônima:", error);
-                    showMessageBox('Erro de Autenticação', `Não foi possível autenticar o utilizador. Usando um ID temporário. Erro: ${error.message}`);
+                    console.error("Erro de autenticação:", error);
+                    userId = crypto.randomUUID(); // Fallback para um ID aleatório
+                    showMessageBox("Erro de Autenticação", `Não foi possível autenticar o utilizador. Usando um ID temporário. Erro: ${error.message}`);
+                    // Se a autenticação falhar, mantém o modal de autenticação visível
+                    if (authModal) authModal.style.display = 'flex';
+                    if (dashboardSection) dashboardSection.classList.add('hidden');
+                    if (loggedUserNameSpan) loggedUserNameSpan.textContent = '';
+                    if (logoutButton) logoutButton.classList.add('hidden');
                 }
             }
 
@@ -1527,15 +2232,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (savedHouseholdId) {
                 currentHouseholdId = savedHouseholdId;
             } else {
-                currentHouseholdId = userId;
+                currentHouseholdId = userId; // Usa o UID do Firebase como Household ID padrão
                 localStorage.setItem('savedHouseholdId', currentHouseholdId);
             }
 
             initializeUI(); // Chama a função para atribuir elementos e configurar listeners
 
             if (userIdDisplay) userIdDisplay.textContent = `ID do Usuário: ${userId} (Household: ${currentHouseholdId})`;
-            // Remove a linha que preenche o input automaticamente. O input começará em branco.
-            // if (joinHouseholdIdInput) joinHouseholdIdInput.value = currentHouseholdId;
 
             lancamentosCollection = collection(db, `artifacts/${appId}/public/data/lancamentos`);
             isAuthReady = true;
@@ -1548,5 +2251,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const userIdDisplayFallback = document.getElementById('user-id-display');
         if (userIdDisplayFallback) userIdDisplayFallback.textContent = `Erro ao carregar ID do Usuário.`;
         showMessageBox("Erro Crítico", 'Erro ao carregar a aplicação. Por favor, tente novamente mais tarde. Verifique o console do navegador para mais detalhes.');
+        if (authModal) authModal.style.display = 'flex'; // Mantém o modal visível em caso de erro crítico
+        if (dashboardSection) dashboardSection.classList.add('hidden');
     }
 });

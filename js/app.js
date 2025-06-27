@@ -259,10 +259,10 @@ const handleTransactionSubmit = async (e) => {
     try {
         // Caminho COMPLETO da coleção no Firebase (ajustado conforme seus prints)
         const transactionCollectionRef = db.collection('artifacts')
-                                           .doc('controle-financeiro-c1a0b')
-                                           .collection('public')
-                                           .doc('data')
-                                           .collection('lancamentos');
+                                         .doc('controle-financeiro-c1a0b')
+                                         .collection('public')
+                                         .doc('data')
+                                         .collection('lancamentos');
 
         if (editingTransactionId) {
             // Lógica de Atualização
@@ -335,14 +335,14 @@ const loadTransactions = () => {
 
     // Caminho COMPLETO da coleção no Firebase (ajustado conforme seus prints)
     let query = db.collection('artifacts')
-                  .doc('controle-financeiro-c1a0b')
-                  .collection('public')
-                  .doc('data')
-                  .collection('lancamentos');
+                    .doc('controle-financeiro-c1a0b')
+                    .collection('public')
+                    .doc('data')
+                    .collection('lancamentos');
 
     // Para consulta no Firestore: Filtra por householdId E ordena por data
-    // Isso requer um índice composto no Firebase: householdId ASC, date DESC
-    query = query.where('householdId', '==', currentHouseholdId).orderBy('date', 'desc');
+    // Isso requer um índice composto no Firebase: householdId ASC, createdAt DESC
+    query = query.where('householdId', '==', currentHouseholdId).orderBy('createdAt', 'desc');
 
 
     const selectedYear = filterYearSelect.value;
@@ -438,11 +438,11 @@ const editTransaction = async (id) => {
     try {
         // Caminho COMPLETO do documento no Firebase
         const docRef = db.collection('artifacts')
-                         .doc('controle-financeiro-c1a0b')
-                         .collection('public')
-                         .doc('data')
-                         .collection('lancamentos')
-                         .doc(id);
+                             .doc('controle-financeiro-c1a0b')
+                             .collection('public')
+                             .doc('data')
+                             .collection('lancamentos')
+                             .doc(id);
         const doc = await docRef.get();
 
         if (!doc.exists) {
@@ -505,11 +505,11 @@ const deleteTransaction = async (id) => {
     try {
         // Caminho COMPLETO do documento no Firebase
         const docRef = db.collection('artifacts')
-                         .doc('controle-financeiro-c1a0b')
-                         .collection('public')
-                         .doc('data')
-                         .collection('lancamentos')
-                         .doc(id);
+                             .doc('controle-financeiro-c1a0b')
+                             .collection('public')
+                             .doc('data')
+                             .collection('lancamentos')
+                             .doc(id);
         const doc = await docRef.get();
 
         if (!doc.exists) {
@@ -601,7 +601,6 @@ const clearMonthlySummary = () => {
     totalEntradasSpan.textContent = 'R$ 0.00';
     totalSaidasSpan.textContent = 'R$ 0.00';
     mediaGastoDiarioSpan.textContent = 'R$ 0.00';
-    saldoMesSpan.textContent = 'R$ 0.00';
     saldoMesSpan.classList.remove('positive', 'negative');
 };
 

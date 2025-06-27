@@ -646,7 +646,7 @@ async function applyEditToSeriesLancamentos(idToUpdate, field, newValue, baseLan
         }
         
         // Executar todas as atualizações em lote
-        await Promise.all(batchUpdates);
+        await Promise.all(batchPromises);
         showMessageBox('Sucesso', `Edição aplicada a ${batchUpdates.length} lançamentos da série!`);
 
     } catch (e) {
@@ -683,20 +683,20 @@ function initializeUI() {
     saldoMesSpan = document.getElementById('saldoMes');
 
     // Elementos do resumo redesenhado
-    saldoStatusBar = document.getElementById('saldoStatusBar');
-    saldoStatusText = document.getElementById('saldoStatusText');
+    saldoStatusBar = document.getElementById('saldoBar'); // Corrigido para 'saldoBar'
+    saldoStatusText = document.getElementById('saldoStatus'); // Corrigido para 'saldoStatus'
     
     // Elementos para o filtro de mês e ano
     filterMesGroup = document.getElementById('filterMesGroup');
     filterMesAll = document.getElementById('filterMesAll');
     // Coleta todos os checkboxes de mês individuais dentro de filterMesGroup, exceto o "Todos"
-    monthFilterCheckboxes = filterMesGroup ? filterMesGroup.querySelectorAll('input[type="checkbox"]:not(#filterMesAll)') : [];
-    filterAnoSelect = document.getElementById('filterAnoSelect');
+    monthFilterCheckboxes = filterMesGroup ? filterMesGroup.querySelectorAll('.month-filter-checkbox') : []; // Corrigido seletor
+    filterAnoSelect = document.getElementById('filterAno'); // Corrigido para 'filterAno'
 
     // Campos de parcelamento
     parcelaAtualSelect = document.getElementById('parcelaAtual');
     totalParcelasSelect = document.getElementById('totalParcelas');
-    parcelaFieldsDiv = document.getElementById('parcelaFieldsDiv');
+    parcelaFieldsDiv = document.getElementById('parcelaFields'); // Corrigido para 'parcelaFields'
 
     // Elementos para seleção e exclusão em massa
     userIdDisplay = document.getElementById('user-id-display');
@@ -706,21 +706,21 @@ function initializeUI() {
     deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
 
     // Campo de cobrança recorrente
-    isRecurringCheckbox = document.getElementById('isRecurringCheckbox');
+    isRecurringCheckbox = document.getElementById('isRecurring'); // Corrigido para 'isRecurring'
 
     // Referências para o modal de parar recorrência
     stopRecurringMonthsModalOverlay = document.getElementById('stopRecurringMonthsModalOverlay');
     stopFromCurrentMonthCheckbox = document.getElementById('stopFromCurrentMonthCheckbox');
-    currentMonthAndYearSpan = document.getElementById('currentMonthAndYearSpan');
-    specificMonthsSelectionDiv = document.getElementById('specificMonthsSelectionDiv');
+    currentMonthAndYearSpan = document.getElementById('currentMonthAndYear'); // Corrigido para 'currentMonthAndYear'
+    specificMonthsSelectionDiv = document.getElementById('specificMonthsSelection'); // Corrigido para 'specificMonthsSelection'
     stopRecurringYearSelect = document.getElementById('stopRecurringYearSelect');
     cancelStopRecurringBtn = document.getElementById('cancelStopRecurringBtn');
     confirmStopRecurringBtn = document.getElementById('confirmStopRecurringBtn');
     // Coleta os checkboxes de mês dentro do modal de parada de recorrência
-    monthStopCheckboxes = specificMonthsSelectionDiv ? specificMonthsSelectionDiv.querySelectorAll('input[type="checkbox"]') : [];
+    monthStopCheckboxes = specificMonthsSelectionDiv ? specificMonthsSelectionDiv.querySelectorAll('.month-stop-checkbox') : []; // Corrigido seletor
 
     // Campo de busca
-    searchBarInput = document.getElementById('searchBarInput');
+    searchBarInput = document.getElementById('searchBar'); // Corrigido para 'searchBar'
 
     // Elementos para feedback de categorização automática
     categoryLoadingIndicator = document.getElementById('categoryLoadingIndicator');
@@ -762,9 +762,23 @@ function initializeUI() {
     if (tipoEntradaRadio) tipoEntradaRadio.addEventListener('change', toggleParcelaRecurringFields);
     if (tipoSaidaRadio) tipoSaidaRadio.addEventListener('change', toggleParcelaRecurringFields);
     if (isRecurringCheckbox) isRecurringCheckbox.addEventListener('change', toggleParcelaRecurringFields);
-    if (parcelaAtualSelect) parcelaAtualSelect.addEventListener('change', toggleParcelaRecurringFields);
-    if (totalParcelasSelect) totalParcelasSelect.addEventListener('change', toggleParcelaRecurringFields);
-
+    if (parcelaAtualSelect) { // Preenche as opções de parcela (1 a 12)
+        for (let i = 1; i <= 12; i++) {
+            const optionAtual = document.createElement('option');
+            optionAtual.value = i;
+            optionAtual.textContent = i;
+            parcelaAtualSelect.appendChild(optionAtual);
+        }
+    }
+    if (totalParcelasSelect) { // Preenche as opções de parcela (1 a 12)
+        for (let i = 1; i <= 12; i++) {
+            const optionTotal = document.createElement('option');
+            optionTotal.value = i;
+            optionTotal.textContent = i;
+            totalParcelasSelect.appendChild(optionTotal);
+        }
+    }
+    
     // Listeners para o filtro de mês e ano
     if (filterMesAll) filterMesAll.addEventListener('change', handleFilterMesAllChange);
     if (monthFilterCheckboxes) {
@@ -1040,15 +1054,18 @@ function renderLancamentos() {
 
     const currentMonth = Array.from(monthFilterCheckboxes).filter(cb => cb.checked).map(cb => parseInt(cb.value));
     const currentYear = parseInt(filterAnoSelect.value);
-    const searchTerm = searchBarInput.value.toLowerCase();
+    const searchTerm = searchBarInput.value.toLowerCase().trim();
 
     const filteredAndSortedLancamentos = lancamentos
         .filter(lancamento => {
             const isSelectedMonth = currentMonth.includes(lancamento.mes);
             const isSelectedYear = lancamento.ano === currentYear;
+            
+            // Aplicar filtro de busca se houver texto na barra
             const matchesSearch = !searchTerm || 
                                   lancamento.descricao.toLowerCase().includes(searchTerm) ||
                                   lancamento.categoria.toLowerCase().includes(searchTerm);
+
             return isSelectedMonth && isSelectedYear && matchesSearch;
         })
         .sort((a, b) => {

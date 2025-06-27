@@ -10,12 +10,12 @@ import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signO
 // --- Configuração do Firebase ---
 // Suas chaves de configuração do projeto Firebase
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY", // <-- SUBSTITUA PELA SUA CHAVE REAL!
+    apiKey: "AIzaSyD998NH9Vco8Yfk-7n3XgMjLW-LkQkAgLA",
     authDomain: "controle-financeiro-c1a0b.firebaseapp.com",
     projectId: "controle-financeiro-c1a0b",
     storageBucket: "controle-financeiro-c1a0b.firebasestorage.app",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID", // <-- SUBSTITUA PELA SUA CHAVE REAL!
-    appId: "YOUR_APP_ID" // <-- SUBSTITUA PELA SUA CHAVE REAL!
+    messagingSenderId: "471645962387",
+    appId: "1:471645962387:web:fd500fdeb62475596c0d66"
 };
 
 // --- Inicializa o Firebase e obtém as instâncias de serviço ---
@@ -31,7 +31,7 @@ try {
 
     firebaseStatusDiv.textContent = 'Conexão Firebase: OK';
     firebaseStatusDiv.classList.add('success');
-    console.log('Firebase inicializado com sucesso.'); //
+    console.log('Firebase inicializado com sucesso.');
 } catch (error) {
     firebaseStatusDiv.textContent = `Conexão Firebase: ERRO - ${error.message}`;
     firebaseStatusDiv.classList.add('error');
@@ -71,14 +71,14 @@ const mediaGastoDiarioSpan = document.getElementById('media-gasto-diario');
 const saldoMesSpan = document.getElementById('saldo-mes');
 
 // Filtros
-const filterYearSelect = document.getElementById('filter-year'); //
+const filterYearSelect = document.getElementById('filter-year');
 const filterDescriptionInput = document.getElementById('filter-description');
-const monthsCheckboxesDiv = document.querySelector('.months-checkboxes'); //
+const monthsCheckboxesDiv = document.querySelector('.months-checkboxes');
 
 // Novos elementos para householdId
-const householdIdInput = document.getElementById('household-id-input'); //
-const setHouseholdIdBtn = document.getElementById('set-household-id-btn'); //
-const currentHouseholdDisplay = document.getElementById('current-household-display'); //
+const householdIdInput = document.getElementById('household-id-input');
+const setHouseholdIdBtn = document.getElementById('set-household-id-btn');
+const currentHouseholdDisplay = document.getElementById('current-household-display');
 
 let currentUserId = null;
 let currentUserName = null;
@@ -281,14 +281,8 @@ async function handleTransactionSubmit(e) {
     };
 
     if (isRecurring && totalParcels > 1) {
-        // A lógica de parcelas para criação de múltiplos documentos é mais complexa.
-        // Por enquanto, vamos salvar o lançamento principal e adicionar os detalhes de parcelamento.
-        // A geração de lançamentos futuros para parcelas deve ser feita em um processo separado,
-        // ou aqui criando múltiplos documentos se essa for a intenção.
-        // Para simplificar, o campo 'parcela' e 'totalParcels' serão apenas dados do lançamento 'pai'.
         lancamentoData.parcelaAtual = 1; // Lançamento "pai" da recorrência
         lancamentoData.totalParcelas = totalParcels;
-        // originalPurchaseAno, originalPurchaseMes, originalPurchaseDia podem ser usados para a data da primeira compra
         lancamentoData.originalPurchaseAno = year;
         lancamentoData.originalPurchaseMes = month;
         lancamentoData.originalPurchaseDia = day;
@@ -305,7 +299,7 @@ async function handleTransactionSubmit(e) {
 
     try {
         // Caminho corrigido para a coleção de lançamentos
-        const lancamentosCollectionRef = collection(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos'); //
+        const lancamentosCollectionRef = collection(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos');
 
         if (editingTransactionId) {
             lancamentoData.createdAt = serverTimestamp(); // ATUALIZA O TIMESTAMP NA EDIÇÃO
@@ -343,21 +337,21 @@ const loadTransactions = () => {
     }
 
     // Caminho corrigido para a coleção de lançamentos
-    console.log(`Tentando carregar lançamentos do caminho: artifacts/controle-financeiro-c1a0b/public/data/lancamentos com householdId: "${currentHouseholdId}"`); //
+    console.log(`Tentando carregar lançamentos do caminho: artifacts/controle-financeiro-c1a0b/public/data/lancamentos com householdId: "${currentHouseholdId}"`);
 
     // Ajuste da query para ordenar por 'ano', 'mes' e 'dia' para compatibilidade com dados existentes
     // Se 'createdAt' for sempre presente e um Timestamp, 'orderBy("createdAt", "desc")' seria o ideal.
     // Usando 'ano' e 'mes' para compatibilidade e como alternativa se 'createdAt' não for consistente.
     let q = query(
-        collection(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos'), //
+        collection(db, 'artifacts', 'controle-financeiro-c1a0b', 'public', 'data', 'lancamentos'),
         where('householdId', '==', currentHouseholdId),
         orderBy('ano', 'desc'), // Ordena por ano
         orderBy('mes', 'desc'), // Depois por mês
         orderBy('dia', 'desc')  // Depois por dia
     );
 
-    const selectedYear = filterYearSelect.value; //
-    const selectedMonths = Array.from(monthsCheckboxesDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value)); //
+    const selectedYear = filterYearSelect.value;
+    const selectedMonths = Array.from(monthsCheckboxesDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
     const searchDescription = filterDescriptionInput.value.toLowerCase().trim();
 
     // Remover listener anterior se existir para evitar duplicação
@@ -368,7 +362,7 @@ const loadTransactions = () => {
 
     unsubscribeSnapshot = onSnapshot(q, snapshot => {
         let transactions = [];
-        console.log(`Snapshot recebido. Documentos brutos do Firebase (após filtro de householdId e ordenação): ${snapshot.size}`); //
+        console.log(`Snapshot recebido. Documentos brutos do Firebase (após filtro de householdId e ordenação): ${snapshot.size}`);
 
         if (snapshot.empty) {
             console.log(`Nenhum documento encontrado para o caminho, ou as regras do Firebase estão bloqueando o acesso, ou nenhum lançamento corresponde à householdId: "${currentHouseholdId}".`);
@@ -417,11 +411,11 @@ const loadTransactions = () => {
         displayTransactions(filteredTransactions);
         updateMonthlySummary(filteredTransactions);
     }, error => {
-        console.error(`Erro ao carregar lançamentos:`, error); //
+        console.error(`Erro ao carregar lançamentos:`, error);
         let errorMessage = 'Erro ao carregar lançamentos. Verifique sua conexão ou Chave de Acesso.';
         if (error.code === 'permission-denied') {
             errorMessage = 'Permissão negada! Verifique as regras de segurança do Firebase Firestore.';
-        } else if (error.code === 'failed-precondition' && error.message.includes('The query requires an index')) { //
+        } else if (error.code === 'failed-precondition' && error.message.includes('The query requires an index')) {
             // Extrai o link para criar o índice
             const indexLinkMatch = error.message.match(/https:\/\/[^\s]+/);
             const indexLink = indexLinkMatch ? indexLinkMatch[0] : '#';
@@ -447,7 +441,7 @@ const displayTransactions = (transactions) => {
         if (transaction.originalDateObject) {
             originalDateDisplay = transaction.originalDateObject.toLocaleDateString('pt-BR');
         } else if (transaction.ano && transaction.mes && transaction.dia) {
-            originalDateDisplay = `${String(transaction.dia).padStart(2, '0')}/${String(transaction.mes).padStart(2, '0')}/${transaction.ano}`; //
+            originalDateDisplay = `${String(transaction.dia).padStart(2, '0')}/${String(transaction.mes).padStart(2, '0')}/${transaction.ano}`;
         }
 
         // Data da Parcela/Transação: usa transactionDateObject que já normaliza Timestamps ou ano/mes/dia
@@ -456,8 +450,8 @@ const displayTransactions = (transactions) => {
         const valueClass = transaction.type === 'entrada' ? 'text-green-400' : 'text-red-400';
         const formattedValue = transaction.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         const recurrenceText = transaction.isRecurring ? 'Sim' : 'Não';
-        const parcelText = transaction.totalParcels > 1 ? `${transaction.parcelaAtual || 1}/${transaction.totalParcels}` : '1/1'; //
-        const householdIdDisplay = transaction.householdId || 'N/A'; //
+        const parcelText = transaction.totalParcels > 1 ? `${transaction.parcelaAtual || 1}/${transaction.totalParcels}` : '1/1';
+        const householdIdDisplay = transaction.householdId || 'N/A';
 
         row.innerHTML = `
             <td class="px-4 py-2">${originalDateDisplay}</td>
@@ -479,7 +473,7 @@ const displayTransactions = (transactions) => {
     });
 };
 
-const editTransaction = async (id) => { // Removi o 'transactionData' do parâmetro pois buscaremos do banco
+const editTransaction = async (id) => {
     if (!currentUserId || !currentHouseholdId) {
         alert('Faça login e defina a Chave de Acesso para editar.');
         return;
@@ -498,7 +492,7 @@ const editTransaction = async (id) => { // Removi o 'transactionData' do parâme
         const data = docSnap.data();
 
         // Verificação de Autorização: A householdId deve ser a mesma E o usuário deve ser o criador (ou pelo menos householdId)
-        if (data.householdId !== currentHouseholdId && data.userId !== currentUserId) { // Se householdId não bate E userId não bate, então não permite
+        if (data.householdId !== currentHouseholdId && data.userId !== currentUserId) {
             alert('Você não tem permissão para editar este lançamento ou ele não pertence à sua Chave de Acesso.');
             return;
         }
@@ -518,7 +512,7 @@ const editTransaction = async (id) => { // Removi o 'transactionData' do parâme
         
         transactionDescriptionInput.value = data.description;
         transactionValueInput.value = data.value;
-        document.querySelector(`input[name="transaction-type"][value="${data.type}"]`).checked = true; //
+        document.querySelector(`input[name="transaction-type"][value="${data.type}"]`).checked = true;
         transactionCategorySelect.value = data.category;
         transactionRecurringCheckbox.checked = data.isRecurring || false;
         transactionTotalParcelsSelect.value = data.totalParcels || 1;
@@ -569,7 +563,7 @@ const deleteTransaction = async (id) => {
         const data = docSnap.data();
 
         // Verificação de Autorização: A householdId deve ser a mesma E o usuário deve ser o criador (ou pelo menos householdId)
-        if (data.householdId !== currentHouseholdId && data.userId !== currentUserId) { // Se householdId não bate E userId não bate, então não permite
+        if (data.householdId !== currentHouseholdId && data.userId !== currentUserId) {
             alert('Você não tem permissão para excluir este lançamento ou ele não pertence à sua Chave de Acesso.');
             return;
         }
@@ -656,7 +650,7 @@ const renderMonthCheckboxes = () => {
     monthsCheckboxesDiv.innerHTML = '';
     const months = [
         { name: 'Janeiro', value: 1 }, { name: 'Fevereiro', value: 2 }, { name: 'Março', value: 3 },
-        { name: 'Abril', value: 4 }, { name: 'Maio', value: 5 }, { name: 'Junho', value: 6 }, //
+        { name: 'Abril', value: 4 }, { name: 'Maio', value: 5 }, { name: 'Junho', value: 6 },
         { name: 'Julho', value: 7 }, { name: 'Agosto', value: 8 }, { name: 'Setembro', value: 9 },
         { name: 'Outubro', value: 10 }, { name: 'Novembro', value: 11 }, { name: 'Dezembro', value: 12 }
     ];
@@ -671,10 +665,10 @@ const renderMonthCheckboxes = () => {
         monthsCheckboxesDiv.appendChild(div);
     });
 
-    const currentMonth = new Date().getMonth() + 1; //
+    const currentMonth = new Date().getMonth() + 1;
     const currentMonthCheckbox = document.getElementById(`month-${currentMonth}`);
     if (currentMonthCheckbox) {
-        currentMonthCheckbox.checked = true; //
+        currentMonthCheckbox.checked = true;
     }
 };
 

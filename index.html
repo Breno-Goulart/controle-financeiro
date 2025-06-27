@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Controle Financeiro Pessoal</title>
+    <!-- Link para a fonte Inter do Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link href="css/styles.css" rel="stylesheet">
+    <!-- Link para o Tailwind CSS local (gerado) -->
+    <link href="./css/styles.css" rel="stylesheet">
     <style>
         /* Estilos personalizados para cores de texto */
         .text-income {
@@ -142,6 +144,7 @@
         <h1 class="text-3xl md:text-4xl font-extrabold mb-6 text-center text-gray-800 tracking-tight">📊 Meu Controle Financeiro Pessoal</h1>
         <p id="user-id-display" class="text-sm md:text-base font-semibold text-gray-600 text-center mb-6 font-mono bg-blue-50 p-3 rounded-lg border border-blue-200 shadow-sm">ID do Usuário: Carregando...</p>
         
+        <!-- Seção para configurar o ID da Família/Casa - Agora sem o parágrafo duplicado -->
         <div class="mb-8 p-6 bg-yellow-50 rounded-xl border border-yellow-200 shadow-md">
             <h2 class="text-xl md:text-2xl font-bold mb-4 text-yellow-800">Gerenciar ID da Família/Casa</h2>
             <div class="flex flex-col md:flex-row gap-4">
@@ -151,6 +154,7 @@
             <p class="text-sm text-gray-600 mt-2">Use este ID para compartilhar lançamentos com outros membros da família ou para organizar diferentes grupos. O ID acima é o ID ativo.</p>
         </div>
 
+        <!-- Formulário para adicionar novos lançamentos (gasto/entrada) -->
         <div class="mb-8 p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-lg transform hover:scale-[1.005] transition-transform duration-200 ease-out">
             <h2 class="text-2xl md:text-3xl font-bold mb-5 text-blue-800">Adicionar Novo Lançamento</h2>
             <form id="lancamentoForm">
@@ -181,7 +185,8 @@
                         <label for="ano" class="block text-sm font-bold text-gray-700 mb-1">Ano</label>
                         <select id="ano" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
                             <option value="">Selecione o Ano</option>
-                            </select>
+                            <!-- Anos serão preenchidos via JavaScript -->
+                        </select>
                     </div>
                     <div class="flex flex-col">
                         <label for="descricao" class="block text-sm font-bold text-gray-700 mb-1">Descrição</label>
@@ -224,13 +229,15 @@
                         <label for="parcelaAtual" class="block text-sm font-bold text-gray-700 mb-1">Parcela Atual</label>
                         <select id="parcelaAtual" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
                             <option value="0">-</option>
-                            </select>
+                            <!-- Opções de 1 a 12 serão preenchidas via JavaScript -->
+                        </select>
                     </div>
                     <div class="flex flex-col">
                         <label for="totalParcelas" class="block text-sm font-bold text-gray-700 mb-1">Total de Parcelas</label>
                         <select id="totalParcelas" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
                             <option value="0">-</option>
-                            </select>
+                            <!-- Opções de 1 a 12 serão preenchidas via JavaScript -->
+                        </select>
                     </div>
                 </div>
                 <div class="mt-4 flex items-center">
@@ -241,16 +248,19 @@
             </form>
         </div>
 
+        <!-- Filtro de Mês e Ano para o Resumo -->
         <div class="mb-8 p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200 shadow-md">
             <h2 class="text-2xl font-bold mb-4 text-purple-800">Filtrar Resumo</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="flex flex-col">
                     <label class="block text-lg font-bold text-gray-700 mb-2">Mês:</label>
                     <div id="filterMesGroup" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2 border border-gray-300 rounded-lg bg-white shadow-sm max-h-48 overflow-y-auto">
+                        <!-- Checkbox "Selecionar Todos os Meses" -->
                         <div class="flex items-center">
                             <input type="checkbox" id="filterMesAll" class="form-checkbox h-4 w-4 text-purple-600 rounded">
                             <label for="filterMesAll" class="ml-2 text-sm font-semibold text-gray-700">Todos os Meses</label>
                         </div>
+                        <!-- Meses serão preenchidos via JavaScript como checkboxes individuais -->
                         <div class="flex items-center"><input type="checkbox" id="filterMes1" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="1"><label for="filterMes1" class="ml-2 text-sm text-gray-700">Janeiro</label></div>
                         <div class="flex items-center"><input type="checkbox" id="filterMes2" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="2"><label for="filterMes2" class="ml-2 text-sm text-gray-700">Fevereiro</label></div>
                         <div class="flex items-center"><input type="checkbox" id="filterMes3" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="3"><label for="filterMes3" class="ml-2 text-sm text-gray-700">Março</label></div>
@@ -269,15 +279,18 @@
                     <label for="filterAno" class="block text-lg font-bold text-gray-700 mb-2">Ano:</label>
                     <select id="filterAno" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
                         <option value="all">Todos os Anos</option>
-                        </select>
+                        <!-- Anos serão preenchidos via JavaScript -->
+                    </select>
                 </div>
             </div>
+            <!-- Campo de busca -->
             <div class="mt-4">
                 <label for="searchBar" class="block text-lg font-bold text-gray-700 mb-2">Buscar:</label>
                 <input type="text" id="searchBar" placeholder="Pesquisar por descrição, categoria ou valor" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
             </div>
         </div>
 
+        <!-- Tabela de Lançamentos -->
         <div class="mb-8 overflow-x-auto rounded-xl shadow-lg border border-gray-200 bg-white">
             <h2 class="text-2xl md:text-3xl font-bold mb-4 text-gray-800 p-6 bg-gray-50 border-b border-gray-200 rounded-t-xl">Seus Lançamentos</h2>
             <table class="min-w-full divide-y divide-gray-200">
@@ -296,13 +309,16 @@
                     </tr>
                 </thead>
                 <tbody id="gastosTableBody" class="bg-white divide-y divide-gray-200">
-                    </tbody>
+                    <!-- Linhas de lançamentos serão inseridas aqui pelo JavaScript -->
+                </tbody>
             </table>
             <div id="no-expenses-message" class="text-center py-8 text-gray-500 italic hidden">Nenhum lançamento registrado ainda. Adicione seu primeiro lançamento!</div>
         </div>
 
+        <!-- Botão Excluir Selecionados -->
         <button id="deleteSelectedBtn" class="mt-4 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 shadow-lg text-lg font-semibold transform hover:-translate-y-0.5 hidden">Excluir Selecionados</button>
 
+        <!-- Resumo Mensal -->
         <div class="mt-8 p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 shadow-lg transform hover:scale-[1.005] transition-transform duration-200 ease-out">
             <h2 class="text-2xl md:text-3xl font-bold mb-4 text-green-800">Resumo Mensal</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-lg">
@@ -311,6 +327,7 @@
                 <p class="text-gray-700 mb-2 font-bold">Média de Gasto Diário: <span id="mediaDiaria" class="font-extrabold text-red-700 text-xl">R$ 0.00</span></p>
                 <p class="text-gray-800 text-2xl font-extrabold col-span-full">Saldo do Mês: <span id="saldoMes" class="font-extrabold text-green-800">R$ 0.00</span></p>
             </div>
+            <!-- Barra de Status do Saldo -->
             <div class="w-full bg-gray-200 rounded-full h-4 mt-4 overflow-hidden">
                 <div id="saldoBar" class="h-4 rounded-full transition-all duration-500" style="width: 0%;"></div>
             </div>
@@ -318,6 +335,9 @@
         </div>
     </div>
 
+    <!-- Modais (Message, Confirm, Stop Recurring, Edit Recurring Choice) -->
+
+    <!-- Modal de Mensagem Padrão -->
     <div id="messageBoxOverlay" class="message-box-overlay hidden">
         <div class="message-box-content">
             <h3 id="messageBoxTitle"></h3>
@@ -326,6 +346,7 @@
         </div>
     </div>
 
+    <!-- Modal de Confirmação Padrão -->
     <div id="confirmBoxOverlay" class="confirm-box-overlay hidden">
         <div class="confirm-box-content">
             <h3 id="confirmBoxTitle"></h3>
@@ -337,6 +358,7 @@
         </div>
     </div>
 
+    <!-- Modal para Parar Recorrência -->
     <div id="stopRecurringMonthsModalOverlay" class="stop-recurring-modal-overlay hidden">
         <div class="stop-recurring-modal-content">
             <h3 class="text-xl font-bold mb-4 text-gray-800">Parar Cobrança Recorrente</h3>
@@ -368,7 +390,8 @@
                 <div class="mt-3">
                     <label for="stopRecurringYearSelect" class="block text-sm font-bold text-gray-700 mb-1">Ano:</label>
                     <select id="stopRecurringYearSelect" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
-                        </select>
+                        <!-- Anos serão preenchidos via JavaScript -->
+                    </select>
                 </div>
             </div>
 
@@ -379,6 +402,7 @@
         </div>
     </div>
 
+    <!-- Modal para Escolha de Edição Recorrente/Parcelada -->
     <div id="editRecurringChoiceModalOverlay" class="edit-recurring-choice-modal-overlay hidden">
         <div class="edit-recurring-choice-modal-content">
             <h3 class="text-xl font-bold mb-4 text-gray-800">Editar Lançamento</h3>
@@ -391,6 +415,7 @@
         </div>
     </div>
 
-    <script type="module" src="js/script.js" defer></script>
+    <!-- Seu script principal (agora carregado como módulo) -->
+    <script type="module" src="./js/app.js" defer></script>
 </body>
 </html>

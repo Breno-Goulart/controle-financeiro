@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Controle Financeiro Pessoal</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="css/styles.css" rel="stylesheet">
     <style>
         /* Estilos personalizados para cores de texto */
         .text-income {
@@ -161,24 +161,41 @@
                     </div>
                     <div class="flex flex-col">
                         <label for="mes" class="block text-sm font-bold text-gray-700 mb-1">Mês</label>
-                        <input type="number" id="mes" min="1" max="12" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" placeholder="Mês" required>
+                        <select id="mes" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                            <option value="">Selecione o Mês</option>
+                            <option value="1">Janeiro</option>
+                            <option value="2">Fevereiro</option>
+                            <option value="3">Março</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Maio</option>
+                            <option value="6">Junho</option>
+                            <option value="7">Julho</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Setembro</option>
+                            <option value="10">Outubro</option>
+                            <option value="11">Novembro</option>
+                            <option value="12">Dezembro</option>
+                        </select>
                     </div>
                     <div class="flex flex-col">
                         <label for="ano" class="block text-sm font-bold text-gray-700 mb-1">Ano</label>
-                        <input type="number" id="ano" min="2000" max="2100" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" placeholder="Ano" required>
+                        <select id="ano" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                            <option value="">Selecione o Ano</option>
+                            </select>
                     </div>
-                    <div class="flex flex-col md:col-span-2">
+                    <div class="flex flex-col">
                         <label for="descricao" class="block text-sm font-bold text-gray-700 mb-1">Descrição</label>
-                        <input type="text" id="descricao" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" placeholder="Ex: Conta de luz, Salário" required>
+                        <input type="text" id="descricao" placeholder="Ex: Salário, Almoço" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
+                        <span id="categoryLoadingIndicator" class="text-xs text-gray-500 mt-1 hidden"></span>
                     </div>
                     <div class="flex flex-col">
                         <label for="valor" class="block text-sm font-bold text-gray-700 mb-1">Valor</label>
-                        <input type="number" id="valor" step="0.01" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" placeholder="0.00" required>
+                        <input type="number" id="valor" placeholder="Ex: 25.50" step="0.01" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
                     </div>
                     <div class="flex flex-col">
                         <label for="categoria" class="block text-sm font-bold text-gray-700 mb-1">Categoria</label>
                         <select id="categoria" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200" required>
-                            <option value="">Selecione</option>
+                            <option value="">Selecione a Categoria</option>
                             <option value="Salário">Salário</option>
                             <option value="Renda Extra">Renda Extra</option>
                             <option value="Investimento">Investimento</option>
@@ -186,194 +203,118 @@
                             <option value="Transporte">Transporte</option>
                             <option value="Lazer">Lazer</option>
                             <option value="Moradia">Moradia</option>
-                            <option value="Contas">Contas</option>
+                            <option value="Contas">Contas (água, luz, internet)</option>
                             <option value="Educação">Educação</option>
                             <option value="Saúde">Saúde</option>
                             <option value="Outros">Outros</option>
                         </select>
                     </div>
-                    <div class="flex flex-col xl:col-span-1">
+                    <div class="flex flex-col">
                         <label class="block text-sm font-bold text-gray-700 mb-1">Tipo</label>
-                        <div class="flex items-center space-x-4 h-full">
-                            <div class="flex items-center">
-                                <input type="radio" id="tipoEntrada" name="tipo" value="entrada" class="form-radio text-green-500" required>
-                                <label for="tipoEntrada" class="ml-2 text-gray-700">Entrada</label>
-                            </div>
-                            <div class="flex items-center">
-                                <input type="radio" id="tipoSaida" name="tipo" value="saida" class="form-radio text-red-500" required>
-                                <label for="tipoSaida" class="ml-2 text-gray-700">Saída</label>
-                            </div>
+                        <div class="flex flex-row items-center gap-x-3 h-full">
+                            <input type="radio" id="tipoEntrada" name="tipo" value="entrada" class="form-radio h-5 w-5 text-green-600 focus:ring-green-500" checked>
+                            <label for="tipoEntrada" class="text-gray-800 text-base font-bold">Entrada</label>
+                            <input type="radio" id="tipoSaida" name="tipo" value="saida" class="form-radio h-5 w-5 text-red-600 focus:ring-red-500">
+                            <label for="tipoSaida" class="text-gray-800 text-base font-bold">Saída</label>
                         </div>
                     </div>
                 </div>
-
-                <div id="parcelaFieldsDiv" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div id="parcelaFields" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
                     <div class="flex flex-col">
                         <label for="parcelaAtual" class="block text-sm font-bold text-gray-700 mb-1">Parcela Atual</label>
-                        <select id="parcelaAtual" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200">
-                            <option value="0">Não aplicável</option>
-                            <script>
-                                for (let i = 1; i <= 12; i++) {
-                                    document.write(`<option value="${i}">${i}</option>`);
-                                }
-                            </script>
-                        </select>
+                        <select id="parcelaAtual" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
+                            <option value="0">-</option>
+                            </select>
                     </div>
                     <div class="flex flex-col">
                         <label for="totalParcelas" class="block text-sm font-bold text-gray-700 mb-1">Total de Parcelas</label>
-                        <select id="totalParcelas" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 shadow-sm transition-colors duration-200">
-                            <option value="0">Não aplicável</option>
-                            <script>
-                                for (let i = 1; i <= 12; i++) {
-                                    document.write(`<option value="${i}">${i}</option>`);
-                                }
-                            </script>
-                        </select>
-                    </div>
-                    <div class="flex items-center mt-2 md:col-span-2">
-                        <input type="checkbox" id="isRecurringCheckbox" class="form-checkbox text-blue-500 h-5 w-5">
-                        <label for="isRecurringCheckbox" class="ml-2 text-gray-700 font-medium">Lançamento Recorrente (mensal)</label>
+                        <select id="totalParcelas" class="w-full p-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200">
+                            <option value="0">-</option>
+                            </select>
                     </div>
                 </div>
-
-                <div class="flex justify-center mt-6">
-                    <button type="submit" id="addGastoBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-                        Adicionar Lançamento
-                    </button>
+                <div class="mt-4 flex items-center">
+                    <input type="checkbox" id="isRecurring" class="form-checkbox h-5 w-5 text-purple-600 rounded">
+                    <label for="isRecurring" class="ml-2 text-base font-bold text-gray-700">Cobrança Recorrente</label>
                 </div>
+                <button type="submit" id="addGastoBtn" class="mt-8 w-full bg-blue-600 text-white p-3.5 rounded-lg hover:bg-blue-700 transition-all duration-300 shadow-lg text-lg font-semibold transform hover:-translate-y-0.5">Adicionar Lançamento</button>
             </form>
         </div>
 
-        <div class="summary-cards grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div class="summary-card p-6 bg-white rounded-xl shadow-md border border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-700 mb-2">Total de Entradas</h3>
-                <p id="totalEntradas" class="text-2xl font-bold text-income">R$ 0,00</p>
-            </div>
-            <div class="summary-card p-6 bg-white rounded-xl shadow-md border border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-700 mb-2">Total de Saídas</h3>
-                <p id="totalSaidas" class="text-2xl font-bold text-expense">R$ 0,00</p>
-            </div>
-            <div class="summary-card p-6 bg-white rounded-xl shadow-md border border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-700 mb-2">Média Diária</h3>
-                <p id="mediaDiaria" class="text-2xl font-bold text-gray-800">R$ 0,00</p>
-            </div>
-            <div class="summary-card p-6 bg-white rounded-xl shadow-md border border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-700 mb-2">Saldo do Mês</h3>
-                <p id="saldoMes" class="text-2xl font-bold text-gray-800">R$ 0,00</p>
-            </div>
-        </div>
-
-        <div class="mb-8 p-6 bg-white rounded-xl shadow-md border border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-700 mb-2">Status do Saldo</h3>
-            <div class="w-full bg-gray-200 rounded-full h-4 mb-2">
-                <div id="saldoStatusBar" class="bg-green-500 h-4 rounded-full transition-all duration-500" style="width: 50%;"></div>
-            </div>
-            <p id="saldoStatusText" class="text-md font-medium text-gray-600 text-center">Calculando...</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 p-6 bg-purple-50 rounded-xl border border-purple-200 shadow-md">
-            <div class="md:col-span-1 flex flex-col">
-                <label for="filterAnoSelect" class="block text-sm font-bold text-gray-700 mb-2">Filtrar por Ano:</label>
-                <select id="filterAnoSelect" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
-                    </select>
-            </div>
-            <div class="md:col-span-2">
-                <label class="block text-sm font-bold text-gray-700 mb-2">Filtrar por Mês:</label>
-                <div id="filterMesGroup" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-2 p-3 bg-white rounded-lg border border-gray-300 shadow-sm">
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMesAll" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMesAll" class="ml-2 text-gray-700 font-medium">Todos os Meses</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes1" value="1" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes1" class="ml-2 text-gray-700">Janeiro</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes2" value="2" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes2" class="ml-2 text-gray-700">Fevereiro</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes3" value="3" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes3" class="ml-2 text-gray-700">Março</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes4" value="4" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes4" class="ml-2 text-gray-700">Abril</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes5" value="5" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes5" class="ml-2 text-gray-700">Maio</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes6" value="6" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes6" class="ml-2 text-gray-700">Junho</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes7" value="7" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes7" class="ml-2 text-gray-700">Julho</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes8" value="8" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes8" class="ml-2 text-gray-700">Agosto</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes9" value="9" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes9" class="ml-2 text-gray-700">Setembro</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes10" value="10" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes10" class="ml-2 text-gray-700">Outubro</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes11" value="11" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes11" class="ml-2 text-gray-700">Novembro</label>
-                    </div>
-                    <div class="flex items-center">
-                        <input type="checkbox" id="filterMes12" value="12" class="form-checkbox text-purple-600 h-5 w-5">
-                        <label for="filterMes12" class="ml-2 text-gray-700">Dezembro</label>
+        <div class="mb-8 p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200 shadow-md">
+            <h2 class="text-2xl font-bold mb-4 text-purple-800">Filtrar Resumo</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="flex flex-col">
+                    <label class="block text-lg font-bold text-gray-700 mb-2">Mês:</label>
+                    <div id="filterMesGroup" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2 border border-gray-300 rounded-lg bg-white shadow-sm max-h-48 overflow-y-auto">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="filterMesAll" class="form-checkbox h-4 w-4 text-purple-600 rounded">
+                            <label for="filterMesAll" class="ml-2 text-sm font-semibold text-gray-700">Todos os Meses</label>
+                        </div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes1" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="1"><label for="filterMes1" class="ml-2 text-sm text-gray-700">Janeiro</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes2" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="2"><label for="filterMes2" class="ml-2 text-sm text-gray-700">Fevereiro</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes3" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="3"><label for="filterMes3" class="ml-2 text-sm text-gray-700">Março</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes4" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="4"><label for="filterMes4" class="ml-2 text-sm text-gray-700">Abril</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes5" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="5"><label for="filterMes5" class="ml-2 text-sm text-gray-700">Maio</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes6" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="6"><label for="filterMes6" class="ml-2 text-sm text-gray-700">Junho</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes7" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="7"><label for="filterMes7" class="ml-2 text-sm text-gray-700">Julho</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes8" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="8"><label for="filterMes8" class="ml-2 text-sm text-gray-700">Agosto</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes9" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="9"><label for="filterMes9" class="ml-2 text-sm text-gray-700">Setembro</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes10" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="10"><label for="filterMes10" class="ml-2 text-sm text-gray-700">Outubro</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes11" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="11"><label for="filterMes11" class="ml-2 text-sm text-gray-700">Novembro</label></div>
+                        <div class="flex items-center"><input type="checkbox" id="filterMes12" class="form-checkbox h-4 w-4 text-purple-600 rounded month-filter-checkbox" value="12"><label for="filterMes12" class="ml-2 text-sm text-gray-700">Dezembro</label></div>
                     </div>
                 </div>
-            </div>
-            <div class="md:col-span-3">
-                <label for="searchBarInput" class="block text-sm font-bold text-gray-700 mb-2">Buscar Lançamentos:</label>
-                <input type="text" id="searchBarInput" placeholder="Buscar por descrição ou categoria..." class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
-            </div>
-        </div>
-        
-        <div class="mb-8 p-6 bg-white rounded-xl shadow-md border border-gray-200 overflow-x-auto">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-bold text-gray-800">Meus Lançamentos</h2>
-                <div class="flex items-center space-x-4">
-                    <div class="flex items-center">
-                        <input type="checkbox" id="selectAllCheckbox" class="form-checkbox h-5 w-5 text-red-600">
-                        <label for="selectAllCheckbox" class="ml-2 text-gray-700">Selecionar Todos</label>
-                    </div>
-                    <button id="deleteSelectedBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 shadow-md">
-                        Excluir Selecionados
-                    </button>
+                <div class="flex flex-col">
+                    <label for="filterAno" class="block text-lg font-bold text-gray-700 mb-2">Ano:</label>
+                    <select id="filterAno" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+                        <option value="all">Todos os Anos</option>
+                        </select>
                 </div>
             </div>
-            
-            <p id="noExpensesMessage" class="text-center text-gray-500 italic p-4 hidden">Nenhum lançamento encontrado para o mês e ano selecionados. Adicione um novo lançamento!</p>
+            <div class="mt-4">
+                <label for="searchBar" class="block text-lg font-bold text-gray-700 mb-2">Buscar:</label>
+                <input type="text" id="searchBar" placeholder="Pesquisar por descrição, categoria ou valor" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+            </div>
+        </div>
 
+        <div class="mb-8 overflow-x-auto rounded-xl shadow-lg border border-gray-200 bg-white">
+            <h2 class="text-2xl md:text-3xl font-bold mb-4 text-gray-800 p-6 bg-gray-50 border-b border-gray-200 rounded-t-xl">Seus Lançamentos</h2>
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <input type="checkbox" id="headerSelectAllCheckbox" class="form-checkbox h-4 w-4 text-blue-600">
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider rounded-tl-xl">
+                            <input type="checkbox" id="selectAllCheckbox" class="form-checkbox h-4 w-4 text-blue-600 rounded">
                         </th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parcela</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Data Compra Original</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Ações Recorrência</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Descrição</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Valor (R$)</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Categoria</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Tipo</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider rounded-tr-xl">Ações</th>
                     </tr>
                 </thead>
                 <tbody id="gastosTableBody" class="bg-white divide-y divide-gray-200">
                     </tbody>
             </table>
+            <div id="no-expenses-message" class="text-center py-8 text-gray-500 italic hidden">Nenhum lançamento registrado ainda. Adicione seu primeiro lançamento!</div>
+        </div>
+
+        <button id="deleteSelectedBtn" class="mt-4 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 shadow-lg text-lg font-semibold transform hover:-translate-y-0.5 hidden">Excluir Selecionados</button>
+
+        <div class="mt-8 p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 shadow-lg transform hover:scale-[1.005] transition-transform duration-200 ease-out">
+            <h2 class="text-2xl md:text-3xl font-bold mb-4 text-green-800">Resumo Mensal</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-lg">
+                <p class="text-gray-700 mb-2 font-bold">Total de Entradas: <span id="totalEntradas" class="font-extrabold text-green-700 text-xl">R$ 0.00</span></p>
+                <p class="text-gray-700 mb-2 font-bold">Total de Saídas: <span id="totalSaidas" class="font-extrabold text-red-700 text-xl">R$ 0.00</span></p>
+                <p class="text-gray-700 mb-2 font-bold">Média de Gasto Diário: <span id="mediaDiaria" class="font-extrabold text-red-700 text-xl">R$ 0.00</span></p>
+                <p class="text-gray-800 text-2xl font-extrabold col-span-full">Saldo do Mês: <span id="saldoMes" class="font-extrabold text-green-800">R$ 0.00</span></p>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-4 mt-4 overflow-hidden">
+                <div id="saldoBar" class="h-4 rounded-full transition-all duration-500" style="width: 0%;"></div>
+            </div>
+            <p id="saldoStatus" class="text-center font-bold text-lg mt-2 text-gray-700">Saldo: R$ 0.00</p>
         </div>
     </div>
 
@@ -398,31 +339,36 @@
 
     <div id="stopRecurringMonthsModalOverlay" class="stop-recurring-modal-overlay hidden">
         <div class="stop-recurring-modal-content">
-            <h3 class="text-xl font-bold mb-4 text-gray-800">Parar Recorrência/Parcelamento</h3>
-            <p class="text-gray-700 mb-4">Escolha a partir de qual mês deseja parar a recorrência/parcelamento para o lançamento:</p>
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Parar Cobrança Recorrente</h3>
+            <p class="text-gray-700 mb-4">Selecione como deseja parar esta cobrança recorrente:</p>
             
-            <div class="flex items-center mb-4">
-                <input type="checkbox" id="stopFromCurrentMonthCheckbox" class="form-checkbox text-indigo-600 h-5 w-5">
-                <label for="stopFromCurrentMonthCheckbox" class="ml-2 text-gray-700 font-medium">Parar a partir do mês atual (<span id="currentMonthAndYearSpan"></span>)</label>
+            <div class="flex items-center mb-3">
+                <input type="checkbox" id="stopFromCurrentMonthCheckbox" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                <label for="stopFromCurrentMonthCheckbox" class="ml-2 text-base font-bold text-gray-700">
+                    Parar a partir de <span id="currentMonthAndYear" class="font-semibold"></span> e futuros.
+                </label>
             </div>
 
-            <div id="specificMonthsSelectionDiv" class="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <h4 class="text-md font-semibold text-gray-700 mb-2">Ou selecione um mês específico:</h4>
-                <select id="stopRecurringYearSelect" class="w-full p-2.5 mb-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-colors duration-200">
-                    </select>
+            <div id="specificMonthsSelection" class="mt-4 p-3 border border-gray-300 rounded-lg bg-gray-50 text-left">
+                <p class="text-sm font-semibold text-gray-700 mb-2">Ou selecione meses específicos para parar:</p>
                 <div class="grid grid-cols-3 gap-2">
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth1" value="1" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth1" class="ml-2 text-gray-700">Jan</label></div>
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth2" value="2" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth2" class="ml-2 text-gray-700">Fev</label></div>
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth3" value="3" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth3" class="ml-2 text-gray-700">Mar</label></div>
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth4" value="4" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth4" class="ml-2 text-gray-700">Abr</label></div>
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth5" value="5" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth5" class="ml-2 text-gray-700">Mai</label></div>
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth6" value="6" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth6" class="ml-2 text-gray-700">Jun</label></div>
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth7" value="7" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth7" class="ml-2 text-gray-700">Jul</label></div>
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth8" value="8" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth8" class="ml-2 text-gray-700">Ago</label></div>
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth9" value="9" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth9" class="ml-2 text-gray-700">Set</label></div>
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth10" value="10" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth10" class="ml-2 text-gray-700">Out</label></div>
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth11" value="11" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth11" class="ml-2 text-gray-700">Nov</label></div>
-                    <div class="flex items-center"><input type="checkbox" id="stopMonth12" value="12" class="form-checkbox text-indigo-600 h-5 w-5"><label for="stopMonth12" class="ml-2 text-gray-700">Dez</label></div>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="1"><span class="ml-2 text-sm text-gray-700">Jan</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="2"><span class="ml-2 text-sm text-gray-700">Fev</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="3"><span class="ml-2 text-sm text-gray-700">Mar</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="4"><span class="ml-2 text-sm text-gray-700">Abr</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="5"><span class="ml-2 text-sm text-gray-700">Mai</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="6"><span class="ml-2 text-sm text-gray-700">Jun</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="7"><span class="ml-2 text-sm text-gray-700">Jul</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="8"><span class="ml-2 text-sm text-gray-700">Ago</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="9"><span class="ml-2 text-sm text-gray-700">Set</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="10"><span class="ml-2 text-sm text-gray-700">Out</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="11"><span class="ml-2 text-sm text-gray-700">Nov</span></label>
+                    <label class="inline-flex items-center"><input type="checkbox" class="form-checkbox h-4 w-4 text-purple-600 rounded month-stop-checkbox" value="12"><span class="ml-2 text-sm text-gray-700">Dez</span></label>
+                </div>
+                <div class="mt-3">
+                    <label for="stopRecurringYearSelect" class="block text-sm font-bold text-gray-700 mb-1">Ano:</label>
+                    <select id="stopRecurringYearSelect" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-colors duration-200">
+                        </select>
                 </div>
             </div>
 
@@ -445,6 +391,6 @@
         </div>
     </div>
 
-    <script type="module" src="script.js"></script>
+    <script type="module" src="js/script.js" defer></script>
 </body>
 </html>
